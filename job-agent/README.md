@@ -15,13 +15,25 @@
 
 ## 本地运行
 
+推荐直接调用虚拟环境中的 Python，不依赖 PowerShell 激活脚本：
+
 ```powershell
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-uvicorn app.main:app --reload
+cd D:\Agent\job-agent
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
 打开 `http://127.0.0.1:8000/health`，检查服务是否正常运行。
+
+如果希望激活虚拟环境，可以在当前 PowerShell 窗口临时放行脚本后再激活：
+
+```powershell
+cd D:\Agent\job-agent
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+`Process` 作用域只影响当前 PowerShell 窗口，关闭窗口后自动失效。
 
 ## 解析简历
 
@@ -51,17 +63,17 @@ POST /api/resumes/parse
 
 ## 运行测试
 
-先激活虚拟环境，再通过 Python 模块方式运行测试：
+通过虚拟环境中的 Python 运行测试：
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-python -m pytest
+cd D:\Agent\job-agent
+.\.venv\Scripts\python.exe -m pytest
 ```
 
-推荐使用 `python -m pytest`，这样可以确保调用的是当前虚拟环境中安装的 pytest。如果提示缺少测试依赖，请重新执行：
+这种方式可以确保调用的是项目虚拟环境中安装的 pytest。如果提示缺少测试依赖，请重新执行：
 
 ```powershell
-python -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
 ## 项目结构
