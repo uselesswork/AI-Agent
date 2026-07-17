@@ -310,6 +310,8 @@ analyzeButton.addEventListener("click", async () => {
 
   const formData = new FormData();
   formData.append("file", currentFile);
+  const selectedProvider = document.querySelector('input[name="provider"]:checked');
+  formData.append("provider", selectedProvider?.value ?? "openai");
 
   try {
     const response = await fetch("/api/resumes/analyze", {

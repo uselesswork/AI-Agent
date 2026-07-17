@@ -390,6 +390,58 @@ a {
   text-align: left;
 }
 
+.provider-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.provider-picker legend {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.provider-picker label {
+  display: flex;
+  padding: 11px 12px;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.provider-picker label:has(input:checked) {
+  border-color: var(--green);
+  background: var(--green-light);
+}
+
+.provider-picker input {
+  accent-color: var(--green);
+}
+
+.provider-picker span,
+.provider-picker strong,
+.provider-picker small {
+  display: block;
+}
+
+.provider-picker strong {
+  font-size: 11px;
+}
+
+.provider-picker small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
 .analysis-button > span:first-child,
 .analysis-button strong,
 .analysis-button small {

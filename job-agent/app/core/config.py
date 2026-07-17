@@ -43,8 +43,11 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
     llm_max_output_tokens: int = 4096
 
-    def provider_config(self) -> ProviderConfig:
-        if self.llm_provider == "openai":
+    def provider_config(
+        self, provider: Literal["openai", "deepseek"] | None = None
+    ) -> ProviderConfig:
+        selected_provider = provider or self.llm_provider
+        if selected_provider == "openai":
             api_key = self.openai_api_key
             model = self.openai_model
             base_url = self.openai_base_url
@@ -54,7 +57,9 @@ class Settings(BaseSettings):
             base_url = self.deepseek_base_url
 
         if api_key is None or not api_key.get_secret_value().strip():
-            variable = "OPENAI_API_KEY" if self.llm_provider == "openai" else "DEEPSEEK_API_KEY"
+            variable = (
+                "OPENAI_API_KEY" if selected_provider == "openai" else "DEEPSEEK_API_KEY"
+            )
             raise LLMConfigurationError(f"未配置 {variable}，无法生成候选人画像。")
         if not model.strip():
             raise LLMConfigurationError("模型名称不能为空。")
@@ -66,7 +71,7 @@ class Settings(BaseSettings):
             raise LLMConfigurationError("LLM_MAX_OUTPUT_TOKENS 必须大于 0。")
 
         return ProviderConfig(
-            provider=self.llm_provider,
+            provider=selected_provider,
             api_key=api_key.get_secret_value(),
             model=model.strip(),
             base_url=base_url.rstrip("/"),

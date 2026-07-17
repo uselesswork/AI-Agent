@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from typing import Literal
+
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from app.core.config import LLMConfigurationError
@@ -91,10 +93,13 @@ async def parse_resume(file: UploadFile = File(...)) -> ResumeParseResponse:
 
 
 @router.post("/analyze", response_model=ResumeAnalysisResponse)
-async def analyze_resume(file: UploadFile = File(...)) -> ResumeAnalysisResponse:
+async def analyze_resume(
+    file: UploadFile = File(...),
+    provider: Literal["openai", "deepseek"] | None = Form(default=None),
+) -> ResumeAnalysisResponse:
     parsed = await read_uploaded_resume(file)
     try:
-        analyzer = build_resume_analyzer()
+        analyzer = build_resume_analyzer(provider)
         profile = await analyzer.analyze(parsed.text)
     except LLMConfigurationError as exc:
         raise HTTPException(

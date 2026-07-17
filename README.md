@@ -24,6 +24,7 @@
 - 缺失或无法确认的信息通过 `warnings` 返回，不允许模型自行补全
 - 提供 `POST /api/resumes/analyze` 结构化分析接口
 - 前端页面可以生成并分区展示候选人画像
+- 前端分析前可选择使用 OpenAI 或 DeepSeek，选择仅影响当前请求
 - 通过同一套 OpenAI Python SDK 支持 OpenAI 和 DeepSeek
 
 ## 本地运行
@@ -85,7 +86,9 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
-切换服务商后需要重新启动 FastAPI。项目只支持 `openai` 和 `deepseek` 两个 `LLM_PROVIDER` 值，其他值会在启动配置校验时被拒绝。
+`LLM_PROVIDER` 是未指定服务商时的默认值。前端页面可以为每次分析单独选择 OpenAI 或 DeepSeek，无需修改 `.env` 或重启服务。项目只支持 `openai` 和 `deepseek`。
+
+如果希望在前端自由切换，请在同一个 `.env` 中同时配置 `OPENAI_API_KEY` 和 `DEEPSEEK_API_KEY`。只配置其中一个 Key 时，仍可使用对应的服务商；选择未配置 Key 的服务商会收到明确提示。
 
 ## 解析简历
 
@@ -99,6 +102,7 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 - 完整简历正文
 - 复制正文按钮
 - 生成结构化候选人画像
+- 在 OpenAI 和 DeepSeek 之间选择本次分析使用的服务商
 - 查看技能和经历对应的简历原文证据
 
 ### 使用接口文档
@@ -135,7 +139,7 @@ POST /api/resumes/parse
 POST /api/resumes/analyze
 ```
 
-接口接收与解析接口相同的简历文件，并返回当前服务商、模型名称和候选人画像：
+接口以 `multipart/form-data` 接收简历文件和可选的 `provider` 字段，并返回实际使用的服务商、模型名称和候选人画像。`provider` 可填写 `openai` 或 `deepseek`；省略时使用 `.env` 中的 `LLM_PROVIDER`：
 
 ```json
 {

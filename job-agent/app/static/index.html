@@ -123,10 +123,21 @@
                 <button class="copy-button" id="copy-button" type="button">复制文本</button>
               </div>
               <pre class="resume-text" id="resume-text" tabindex="0"></pre>
+              <fieldset class="provider-picker">
+                <legend>选择分析模型</legend>
+                <label>
+                  <input type="radio" name="provider" value="openai" checked />
+                  <span><strong>OpenAI</strong><small>使用 OPENAI_API_KEY</small></span>
+                </label>
+                <label>
+                  <input type="radio" name="provider" value="deepseek" />
+                  <span><strong>DeepSeek</strong><small>使用 DEEPSEEK_API_KEY</small></span>
+                </label>
+              </fieldset>
               <button class="analysis-button" id="analyze-button" type="button">
                 <span>
                   <strong>生成候选人画像</strong>
-                  <small>调用环境变量中配置的 OpenAI 或 DeepSeek</small>
+                  <small>使用上方选择的模型分析本次简历</small>
                 </span>
                 <span aria-hidden="true">AI →</span>
               </button>

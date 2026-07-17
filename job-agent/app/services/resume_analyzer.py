@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import ValidationError
 
 from app.core.config import get_settings
@@ -29,6 +31,8 @@ class ResumeAnalyzer:
             raise LLMResponseError("大模型返回的数据不符合候选人画像结构，请重试。") from exc
 
 
-def build_resume_analyzer() -> ResumeAnalyzer:
-    config = get_settings().provider_config()
+def build_resume_analyzer(
+    provider: Literal["openai", "deepseek"] | None = None,
+) -> ResumeAnalyzer:
+    config = get_settings().provider_config(provider)
     return ResumeAnalyzer(OpenAICompatibleClient(config))
