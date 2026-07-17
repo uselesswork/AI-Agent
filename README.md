@@ -27,6 +27,17 @@
 - 前端分析前可选择使用 OpenAI 或 DeepSeek，选择仅影响当前请求
 - 通过同一套 OpenAI Python SDK 支持 OpenAI 和 DeepSeek
 
+第三阶段的岗位匹配功能已经完成：
+
+- 前端支持粘贴并解析实习岗位描述
+- 提取岗位名称、职责、必备技能、加分技能、学历、经验、地点和实习时间要求
+- 基于候选人画像和岗位画像生成 0～100 匹配分
+- 从技能、项目、教育、实习经历、基本条件五个维度解释评分
+- 逐项展示满足、部分满足、不满足或无法确认的岗位要求
+- 输出简历证据、匹配优势、关键差距、投递建议和简历优化建议
+- 优化建议只能调整真实内容的表达与顺序，不允许编造经历
+- 提供 `POST /api/jobs/parse` 和 `POST /api/matches/analyze` 接口
+
 ## 本地运行
 
 推荐直接调用虚拟环境中的 Python，不依赖 PowerShell 激活脚本：
@@ -104,6 +115,8 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 - 生成结构化候选人画像
 - 在 OpenAI 和 DeepSeek 之间选择本次分析使用的服务商
 - 查看技能和经历对应的简历原文证据
+- 粘贴并结构化解析岗位描述
+- 生成五维匹配评分和针对岗位的简历优化建议
 
 ### 使用接口文档
 
@@ -165,6 +178,33 @@ POST /api/resumes/analyze
 }
 ```
 
+## 岗位解析与匹配接口
+
+解析岗位描述：
+
+```text
+POST /api/jobs/parse
+```
+
+请求体为 JSON，`provider` 可以省略：
+
+```json
+{
+  "description": "岗位职责与任职要求……",
+  "provider": "deepseek"
+}
+```
+
+生成匹配报告：
+
+```text
+POST /api/matches/analyze
+```
+
+请求体为 JSON，包含第二阶段返回的 `candidate_profile`、岗位解析返回的 `job_profile`，以及可选的 `provider`。接口返回总分、投递建议、五个评分维度、岗位要求逐项判断、优势、差距和简历优化建议。
+
+前端使用流程为：上传并解析简历 → 生成候选人画像 → 粘贴岗位描述 → 解析岗位要求 → 生成匹配报告。岗位解析和匹配分析会分别调用一次当前选择的大模型。
+
 ## 运行测试
 
 通过虚拟环境中的 Python 运行测试：
@@ -184,18 +224,28 @@ cd D:\Agent\job-agent
 
 ```text
 app/api/resumes.py                 简历上传接口与请求校验
+app/api/jobs.py                    岗位描述解析接口
+app/api/matches.py                 简历与岗位匹配接口
 app/core/config.py                 OpenAI、DeepSeek 环境配置
 app/models/candidate.py            候选人画像数据模型
+app/models/job.py                  岗位画像数据模型
+app/models/match.py                匹配评分数据模型
 app/prompts/resume_analysis.py     简历结构化提示词
+app/prompts/job_analysis.py        岗位结构化提示词
+app/prompts/match_analysis.py      匹配评分提示词
 app/services/document_parser.py   PDF、DOCX、TXT 文本解析
 app/services/llm.py               OpenAI 兼容模型客户端
 app/services/resume_analyzer.py   候选人画像分析服务
+app/services/job_analyzer.py      岗位描述分析服务
+app/services/match_analyzer.py    简历与岗位匹配服务
 app/static/index.html             前端测试页面结构
 app/static/styles.css             前端页面样式与响应式布局
 app/static/app.js                 上传、解析、复制等交互逻辑
 tests/test_document_parser.py     文档解析单元测试
 tests/test_resume_api.py          简历上传接口测试
 tests/test_resume_analysis_api.py 候选人画像接口测试
+tests/test_job_match_api.py       岗位解析与匹配接口测试
+tests/test_match_models.py        匹配评分模型测试
 tests/test_frontend.py            前端页面与静态资源测试
 ```
 
@@ -213,4 +263,4 @@ D:\Agent\test\测试简历模板.txt
 
 ## 下一阶段
 
-下一步将实现岗位 JD 结构化，把岗位要求拆分为硬性要求、加分项、职责、技能和经验要求，为后续简历匹配分析做准备。
+下一步可以实现岗位收藏、多个岗位横向排序和投递状态管理，并把每次匹配报告保存到本地数据库，形成可持续使用的求职工作台。

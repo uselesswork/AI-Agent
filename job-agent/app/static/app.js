@@ -27,8 +27,26 @@ const profileTargets = document.querySelector("#profile-targets");
 const profileSections = document.querySelector("#profile-sections");
 const profileWarnings = document.querySelector("#profile-warnings");
 const profileWarningList = document.querySelector("#profile-warning-list");
+const jobMatchPanel = document.querySelector("#job-match-panel");
+const jobDescription = document.querySelector("#job-description");
+const jobCharacterCount = document.querySelector("#job-character-count");
+const parseJobButton = document.querySelector("#parse-job-button");
+const jobPreview = document.querySelector("#job-preview");
+const matchPanel = document.querySelector("#match-panel");
+const matchProvider = document.querySelector("#match-provider");
+const matchModel = document.querySelector("#match-model");
+const matchScore = document.querySelector("#match-score");
+const matchRecommendation = document.querySelector("#match-recommendation");
+const matchSummary = document.querySelector("#match-summary");
+const matchDimensions = document.querySelector("#match-dimensions");
+const matchStrengths = document.querySelector("#match-strengths");
+const matchGaps = document.querySelector("#match-gaps");
+const matchSuggestions = document.querySelector("#match-suggestions");
+const matchAssessments = document.querySelector("#match-assessments");
 
 let currentFile = null;
+let currentCandidateProfile = null;
+let currentJobProfile = null;
 
 function extensionOf(filename) {
   return filename.split(".").pop()?.toLowerCase() ?? "";
@@ -55,6 +73,10 @@ function clearResult() {
   emptyState.classList.remove("is-hidden");
   resumeText.textContent = "";
   profilePanel.classList.add("is-hidden");
+  jobMatchPanel.classList.add("is-hidden");
+  matchPanel.classList.add("is-hidden");
+  currentCandidateProfile = null;
+  currentJobProfile = null;
 }
 
 function createElement(tag, className, text) {
@@ -192,7 +214,106 @@ function renderProfile(data) {
   }
 
   profilePanel.classList.remove("is-hidden");
+  currentCandidateProfile = profile;
+  jobMatchPanel.classList.remove("is-hidden");
   profilePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function selectedProvider() {
+  return document.querySelector('input[name="provider"]:checked')?.value ?? "openai";
+}
+
+function renderJob(profile) {
+  jobPreview.replaceChildren();
+  const title = createElement("h3", "job-preview-title", profile.title || "未识别岗位名称");
+  const meta = [profile.company, profile.location, profile.education].filter(Boolean).join(" · ");
+  jobPreview.append(title, createElement("p", "job-preview-meta", meta || "未提供公司、地点或学历信息"));
+  const groups = [
+    ["必备技能", profile.required_skills],
+    ["加分技能", profile.preferred_skills],
+    ["岗位职责", profile.responsibilities],
+  ];
+  for (const [label, values] of groups) {
+    if (!values?.length) continue;
+    const section = createElement("section", "job-preview-section");
+    section.append(createElement("h4", "", label));
+    addList(section, values);
+    jobPreview.append(section);
+  }
+  const button = createElement("button", "analysis-button match-button");
+  button.type = "button";
+  button.id = "analyze-match-button";
+  button.innerHTML = "<span><strong>生成匹配报告</strong><small>基于候选人画像与岗位要求评分</small></span><span>AI →</span>";
+  button.addEventListener("click", analyzeMatch);
+  jobPreview.append(button);
+}
+
+function fillList(element, values, emptyText) {
+  element.replaceChildren();
+  for (const value of values?.length ? values : [emptyText]) element.append(createElement("li", "", value));
+}
+
+function renderMatch(data) {
+  const result = data.result;
+  matchProvider.textContent = data.provider;
+  matchModel.textContent = data.model;
+  matchScore.textContent = result.overall_score;
+  matchRecommendation.textContent = result.recommendation;
+  matchSummary.textContent = result.summary;
+  matchDimensions.replaceChildren();
+  for (const item of result.dimensions) {
+    const card = createElement("article", "dimension-card");
+    card.append(createElement("span", "", `${item.name} · 权重 ${item.weight}%`));
+    card.append(createElement("strong", "", item.score));
+    const bar = createElement("div", "score-bar");
+    const fill = createElement("i");
+    fill.style.width = `${item.score}%`;
+    bar.append(fill);
+    card.append(bar, createElement("p", "", item.reason));
+    matchDimensions.append(card);
+  }
+  fillList(matchStrengths, result.strengths, "暂无明确优势");
+  fillList(matchGaps, result.gaps, "暂无明确差距");
+  fillList(matchSuggestions, result.resume_suggestions, "暂无优化建议");
+  matchAssessments.replaceChildren();
+  for (const item of result.assessments) {
+    const card = createElement("article", "assessment-card");
+    card.append(createElement("span", `assessment-status status-${item.status}`, item.status));
+    card.append(createElement("h4", "", item.requirement));
+    card.append(createElement("p", "", item.reason));
+    addEvidence(card, item.resume_evidence.map((quote) => ({ quote })));
+    matchAssessments.append(card);
+  }
+  matchPanel.classList.remove("is-hidden");
+  matchPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function analyzeMatch(event) {
+  const button = event?.currentTarget;
+  if (!currentCandidateProfile || !currentJobProfile || !button) return;
+  clearMessage();
+  button.disabled = true;
+  const original = button.querySelector("strong").textContent;
+  button.querySelector("strong").textContent = "正在计算匹配度...";
+  try {
+    const response = await fetch("/api/matches/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        candidate_profile: currentCandidateProfile,
+        job_profile: currentJobProfile,
+        provider: selectedProvider(),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || `匹配分析失败，服务器返回 ${response.status}。`);
+    renderMatch(data);
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "匹配分析失败，请稍后重试。");
+  } finally {
+    button.disabled = false;
+    button.querySelector("strong").textContent = original;
+  }
 }
 
 function validateFile(file) {
@@ -310,8 +431,7 @@ analyzeButton.addEventListener("click", async () => {
 
   const formData = new FormData();
   formData.append("file", currentFile);
-  const selectedProvider = document.querySelector('input[name="provider"]:checked');
-  formData.append("provider", selectedProvider?.value ?? "openai");
+  formData.append("provider", selectedProvider());
 
   try {
     const response = await fetch("/api/resumes/analyze", {
@@ -340,5 +460,37 @@ copyButton.addEventListener("click", async () => {
     }, 1600);
   } catch {
     showMessage("浏览器未允许复制，请手动选择正文复制。 ");
+  }
+});
+
+jobDescription.addEventListener("input", () => {
+  jobCharacterCount.textContent = jobDescription.value.length.toLocaleString("zh-CN");
+});
+
+parseJobButton.addEventListener("click", async () => {
+  const description = jobDescription.value.trim();
+  if (description.length < 20) {
+    showMessage("岗位描述至少需要 20 个字符，请粘贴更完整的内容。");
+    return;
+  }
+  clearMessage();
+  matchPanel.classList.add("is-hidden");
+  parseJobButton.disabled = true;
+  parseJobButton.querySelector("span:first-child").textContent = "正在解析岗位...";
+  try {
+    const response = await fetch("/api/jobs/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description, provider: selectedProvider() }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || `岗位解析失败，服务器返回 ${response.status}。`);
+    currentJobProfile = data.profile;
+    renderJob(data.profile);
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "岗位解析失败，请稍后重试。");
+  } finally {
+    parseJobButton.disabled = false;
+    parseJobButton.querySelector("span:first-child").textContent = "解析岗位要求";
   }
 });

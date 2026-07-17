@@ -28,7 +28,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -596,6 +597,91 @@ a {
   box-shadow: var(--shadow);
 }
 
+.job-match-panel,
+.match-panel {
+  margin-top: 28px;
+  padding: 42px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.stage-badge {
+  padding: 8px 11px;
+  border-radius: 999px;
+  color: var(--green);
+  background: var(--acid);
+  font: 800 9px/1 Arial, sans-serif;
+}
+
+.job-input-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 26px;
+  padding-top: 28px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+#job-description {
+  width: 100%;
+  min-height: 320px;
+  padding: 18px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  background: #faf9f4;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+#job-description:focus {
+  border-color: var(--green);
+  outline: 3px solid rgba(23, 79, 58, 0.12);
+}
+
+.field-hint { display: block; margin-top: 6px; color: var(--muted); font-size: 9px; }
+.job-preview { min-height: 420px; padding: 24px; border: 1px solid var(--line); border-radius: 18px; background: #faf9f4; }
+.compact-empty { min-height: 360px; }
+.job-preview-title { margin: 0; font: 500 26px/1.2 Georgia, "Songti SC", serif; }
+.job-preview-meta { margin: 8px 0 22px; color: var(--muted); font-size: 10px; }
+.job-preview-section { margin-top: 18px; }
+.job-preview-section h4 { margin: 0 0 8px; color: var(--green); font-size: 10px; }
+.job-preview-section ul { margin: 0; padding-left: 18px; font-size: 10px; line-height: 1.7; }
+.match-button { margin-top: 24px; }
+
+.match-hero { display: grid; grid-template-columns: auto 1fr; gap: 26px; align-items: center; padding: 30px 0; }
+.score-ring { display: grid; width: 112px; height: 112px; place-content: center; border: 9px solid var(--acid); border-radius: 50%; text-align: center; }
+.score-ring strong { color: var(--green); font: 500 38px/1 Georgia, serif; }
+.score-ring span { margin-top: 5px; color: var(--muted); font-size: 9px; }
+.recommendation { display: inline-block; padding: 7px 10px; border-radius: 999px; color: var(--green); background: var(--green-light); font-size: 10px; font-weight: 800; }
+.match-hero p { max-width: 700px; margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.dimension-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.dimension-card { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #faf9f4; }
+.dimension-card span { color: var(--muted); font-size: 8px; }
+.dimension-card strong { display: block; margin: 8px 0; color: var(--green); font: 500 25px/1 Georgia, serif; }
+.dimension-card p { margin: 10px 0 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
+.score-bar { height: 4px; overflow: hidden; border-radius: 4px; background: var(--line); }
+.score-bar i { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.match-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; }
+.match-columns section { padding: 18px; border-radius: 14px; background: var(--green-light); }
+.match-columns h3 { margin: 0 0 10px; color: var(--green); font-size: 11px; }
+.match-columns ul { margin: 0; padding-left: 17px; font-size: 10px; line-height: 1.7; }
+.assessment-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 22px; }
+.assessment-card { padding: 18px; border: 1px solid var(--line); border-radius: 14px; }
+.assessment-card h4 { margin: 10px 0 6px; font-size: 12px; }
+.assessment-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.assessment-status { padding: 5px 8px; border-radius: 999px; background: #eee; font-size: 8px; font-weight: 800; }
+.status-满足 { color: #1d6940; background: #dce9df; }
+.status-不满足 { color: var(--danger); background: #f8e7e3; }
+
 .profile-header {
   display: flex;
   align-items: flex-end;
@@ -837,7 +923,11 @@ a:focus-visible {
   .hero,
   .workspace,
   .notes,
-  .profile-sections {
+  .profile-sections,
+  .job-input-grid,
+  .dimension-grid,
+  .match-columns,
+  .assessment-list {
     grid-template-columns: 1fr;
   }
 
@@ -894,6 +984,11 @@ a:focus-visible {
     padding: 26px 18px;
     border-radius: 22px;
   }
+
+  .job-match-panel,
+  .match-panel { padding: 26px 18px; border-radius: 22px; }
+
+  .match-hero { grid-template-columns: 1fr; }
 
   .profile-header {
     gap: 18px;

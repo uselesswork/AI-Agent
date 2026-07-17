@@ -172,6 +172,58 @@
           </div>
         </section>
 
+        <section class="job-match-panel is-hidden" id="job-match-panel" aria-labelledby="job-title">
+          <div class="profile-header">
+            <div>
+              <p class="eyebrow">第三阶段 · 岗位匹配</p>
+              <h2 id="job-title">分析目标岗位</h2>
+            </div>
+            <span class="stage-badge">JD → MATCH</span>
+          </div>
+          <div class="job-input-grid">
+            <div>
+              <label class="field-label" for="job-description">粘贴岗位描述</label>
+              <textarea
+                id="job-description"
+                rows="14"
+                maxlength="30000"
+                placeholder="请粘贴完整的岗位职责、任职要求和加分项，至少 20 个字符。"
+              ></textarea>
+              <small class="field-hint"><span id="job-character-count">0</span> / 30000 字符</small>
+              <button class="primary-button" id="parse-job-button" type="button">
+                <span>解析岗位要求</span><span aria-hidden="true">JD →</span>
+              </button>
+            </div>
+            <div class="job-preview" id="job-preview">
+              <div class="empty-state compact-empty">
+                <span class="empty-index">JD</span>
+                <p>解析后将在这里展示岗位名称、技能要求和基本条件。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="match-panel is-hidden" id="match-panel" aria-labelledby="match-title">
+          <div class="profile-header">
+            <div>
+              <p class="eyebrow">证据化匹配报告</p>
+              <h2 id="match-title">简历与岗位匹配度</h2>
+            </div>
+            <div class="model-meta"><span id="match-provider">—</span><small id="match-model">—</small></div>
+          </div>
+          <div class="match-hero">
+            <div class="score-ring"><strong id="match-score">—</strong><span>/ 100</span></div>
+            <div><span class="recommendation" id="match-recommendation">—</span><p id="match-summary"></p></div>
+          </div>
+          <div class="dimension-grid" id="match-dimensions"></div>
+          <div class="match-columns">
+            <section><h3>匹配优势</h3><ul id="match-strengths"></ul></section>
+            <section><h3>关键差距</h3><ul id="match-gaps"></ul></section>
+            <section><h3>简历优化建议</h3><ul id="match-suggestions"></ul></section>
+          </div>
+          <div class="assessment-list" id="match-assessments"></div>
+        </section>
+
         <section class="notes" aria-labelledby="notes-title">
           <div>
             <p class="eyebrow">测试提示</p>
@@ -198,7 +250,7 @@
       </main>
 
       <footer>
-        <span>AI 求职助手 · 第一、二阶段测试页面</span>
+        <span>AI 求职助手 · 第一、二、三阶段测试页面</span>
         <a href="/docs">打开接口文档</a>
       </footer>
     </div>

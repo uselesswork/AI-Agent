@@ -14,6 +14,8 @@ def test_frontend_page_is_available() -> None:
     assert "生成候选人画像" in response.text
     assert 'value="openai"' in response.text
     assert 'value="deepseek"' in response.text
+    assert "粘贴岗位描述" in response.text
+    assert "简历与岗位匹配度" in response.text
     assert "/api/resumes/parse" not in response.text
 
 
@@ -33,3 +35,5 @@ def test_frontend_assets_are_available() -> None:
     assert 'fetch("/api/resumes/parse"' in js_response.text
     assert 'fetch("/api/resumes/analyze"' in js_response.text
     assert 'formData.append("provider"' in js_response.text
+    assert 'fetch("/api/jobs/parse"' in js_response.text
+    assert 'fetch("/api/matches/analyze"' in js_response.text
