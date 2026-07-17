@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "job-agent"
 version = "0.1.0"
 description = "一个基于证据分析简历与实习岗位描述匹配度的 AI Agent。"
-readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi>=0.115,<1",
