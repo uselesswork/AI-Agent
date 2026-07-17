@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="AI 求职助手第一阶段测试台，用于上传并解析 PDF、DOCX 和 TXT 简历。"
+    />
+    <title>简历解析测试台 | AI 求职助手</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/upload" aria-label="返回简历解析测试台首页">
+          <span class="brand-mark" aria-hidden="true">JA</span>
+          <span>
+            <strong>AI 求职助手</strong>
+            <small>JOB AGENT / PHASE 01</small>
+          </span>
+        </a>
+        <div class="header-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          文档解析服务
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">第一阶段 · 文档输入层</p>
+            <h1 id="page-title">把简历变成<br /><span>可处理的文本</span></h1>
+          </div>
+          <div class="hero-copy">
+            <p>
+              上传一份测试简历，检查系统能否稳定读取正文。当前支持 PDF、DOCX 和 TXT，
+              文件仅在本次请求中处理，不会保存到服务器。
+            </p>
+            <div class="format-row" aria-label="支持的文件格式">
+              <span>PDF</span><span>DOCX</span><span>TXT</span><em>最大 10 MB</em>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace" aria-label="简历上传与解析结果">
+          <div class="upload-panel">
+            <div class="panel-heading">
+              <span class="step-number">01</span>
+              <div>
+                <p class="panel-kicker">选择文件</p>
+                <h2>上传测试简历</h2>
+              </div>
+            </div>
+
+            <label class="drop-zone" id="drop-zone" for="resume-file">
+              <input
+                id="resume-file"
+                name="file"
+                type="file"
+                accept=".pdf,.docx,.txt"
+                aria-describedby="upload-hint"
+              />
+              <span class="upload-symbol" aria-hidden="true">↑</span>
+              <strong>拖拽文件到这里</strong>
+              <span>或者点击选择本地文件</span>
+              <small id="upload-hint">支持 PDF / DOCX / TXT，文件不超过 10 MB</small>
+            </label>
+
+            <div class="selected-file is-hidden" id="selected-file" aria-live="polite">
+              <div class="file-badge" id="file-badge">PDF</div>
+              <div class="file-description">
+                <strong id="file-name"></strong>
+                <span id="file-size"></span>
+              </div>
+              <button class="text-button" id="change-file" type="button">重新选择</button>
+            </div>
+
+            <button class="primary-button" id="parse-button" type="button" disabled>
+              <span>开始解析</span>
+              <span aria-hidden="true">→</span>
+            </button>
+
+            <div class="message is-hidden" id="message" role="alert"></div>
+          </div>
+
+          <div class="result-panel" id="result-panel">
+            <div class="panel-heading">
+              <span class="step-number">02</span>
+              <div>
+                <p class="panel-kicker">解析输出</p>
+                <h2>提取结果</h2>
+              </div>
+            </div>
+
+            <div class="empty-state" id="empty-state">
+              <span class="empty-index">TEXT</span>
+              <p>上传文件并开始解析后，提取出的简历正文会显示在这里。</p>
+            </div>
+
+            <div class="result-content is-hidden" id="result-content">
+              <dl class="result-stats">
+                <div>
+                  <dt>文件格式</dt>
+                  <dd id="result-type">—</dd>
+                </div>
+                <div>
+                  <dt>字符数量</dt>
+                  <dd id="result-count">—</dd>
+                </div>
+                <div>
+                  <dt>处理状态</dt>
+                  <dd class="success-value">解析成功</dd>
+                </div>
+              </dl>
+
+              <div class="text-heading">
+                <div>
+                  <span>提取正文</span>
+                  <small id="result-filename"></small>
+                </div>
+                <button class="copy-button" id="copy-button" type="button">复制文本</button>
+              </div>
+              <pre class="resume-text" id="resume-text" tabindex="0"></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="notes" aria-labelledby="notes-title">
+          <div>
+            <p class="eyebrow">测试提示</p>
+            <h2 id="notes-title">遇到异常时，先看这里</h2>
+          </div>
+          <div class="note-grid">
+            <article>
+              <span>400</span>
+              <h3>文件无效</h3>
+              <p>文件为空、损坏，或文本编码无法识别。</p>
+            </article>
+            <article>
+              <span>413 / 415</span>
+              <h3>大小或格式不符</h3>
+              <p>请选择 10 MB 以内的 PDF、DOCX 或 TXT。</p>
+            </article>
+            <article>
+              <span>422</span>
+              <h3>没有可提取文本</h3>
+              <p>扫描版 PDF 需要先通过 OCR 转换成文字。</p>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>AI 求职助手 · 第一阶段测试页面</span>
+        <a href="/docs">打开接口文档</a>
+      </footer>
+    </div>
+  </body>
+</html>

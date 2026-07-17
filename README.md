@@ -6,6 +6,9 @@
 
 第一阶段的简历上传与文本解析功能已经完成：
 
+- 提供独立的中文简历上传测试页面
+- 支持点击选择和拖拽上传文件
+- 页面展示文件格式、字符数量和完整提取正文
 - 支持 PDF、DOCX 和 TXT 文件
 - 单个文件最大 10 MB
 - 能够读取 DOCX 段落与表格内容
@@ -23,7 +26,11 @@ cd D:\Agent\job-agent
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-打开 `http://127.0.0.1:8000/health`，检查服务是否正常运行。
+启动后可以访问：
+
+- 前端测试页面：`http://127.0.0.1:8000/upload`
+- 接口文档：`http://127.0.0.1:8000/docs`
+- 健康检查：`http://127.0.0.1:8000/health`
 
 如果希望激活虚拟环境，可以在当前 PowerShell 窗口临时放行脚本后再激活：
 
@@ -37,7 +44,19 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 解析简历
 
-启动服务后打开 `http://127.0.0.1:8000/docs`，在 Swagger 页面中调用：
+### 使用前端页面
+
+打开 `http://127.0.0.1:8000/upload`，点击或拖拽上传 PDF、DOCX、TXT 简历，然后点击“开始解析”。页面会显示：
+
+- 文件格式
+- 提取字符数量
+- 文件处理状态
+- 完整简历正文
+- 复制正文按钮
+
+### 使用接口文档
+
+打开 `http://127.0.0.1:8000/docs`，在 Swagger 页面中调用：
 
 ```text
 POST /api/resumes/parse
@@ -81,8 +100,12 @@ cd D:\Agent\job-agent
 ```text
 app/api/resumes.py                 简历上传接口与请求校验
 app/services/document_parser.py   PDF、DOCX、TXT 文本解析
+app/static/index.html             前端测试页面结构
+app/static/styles.css             前端页面样式与响应式布局
+app/static/app.js                 上传、解析、复制等交互逻辑
 tests/test_document_parser.py     文档解析单元测试
 tests/test_resume_api.py          简历上传接口测试
+tests/test_frontend.py            前端页面与静态资源测试
 ```
 
 ## 测试简历文件
