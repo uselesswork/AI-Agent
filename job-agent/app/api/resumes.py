@@ -1,13 +1,18 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
+from app.core.config import LLMConfigurationError
+from app.models.candidate import ResumeAnalysisResponse
 from app.services.document_parser import (
     DocumentParseError,
     EmptyDocumentTextError,
     extract_document_text,
 )
+from app.services.llm import LLMServiceError
+from app.services.resume_analyzer import build_resume_analyzer
 
 router = APIRouter(prefix="/api/resumes", tags=["简历"])
 
@@ -22,8 +27,14 @@ class ResumeParseResponse(BaseModel):
     text: str
 
 
-@router.post("/parse", response_model=ResumeParseResponse)
-async def parse_resume(file: UploadFile = File(...)) -> ResumeParseResponse:
+@dataclass(frozen=True)
+class ParsedResume:
+    filename: str
+    file_type: str
+    text: str
+
+
+async def read_uploaded_resume(file: UploadFile) -> ParsedResume:
     filename = Path(file.filename or "").name
     extension = Path(filename).suffix.lower()
 
@@ -61,9 +72,44 @@ async def parse_resume(file: UploadFile = File(...)) -> ResumeParseResponse:
             detail=str(exc),
         ) from exc
 
-    return ResumeParseResponse(
+    return ParsedResume(
         filename=filename,
         file_type=extension.removeprefix("."),
-        character_count=len(text),
         text=text,
+    )
+
+
+@router.post("/parse", response_model=ResumeParseResponse)
+async def parse_resume(file: UploadFile = File(...)) -> ResumeParseResponse:
+    parsed = await read_uploaded_resume(file)
+    return ResumeParseResponse(
+        filename=parsed.filename,
+        file_type=parsed.file_type,
+        character_count=len(parsed.text),
+        text=parsed.text,
+    )
+
+
+@router.post("/analyze", response_model=ResumeAnalysisResponse)
+async def analyze_resume(file: UploadFile = File(...)) -> ResumeAnalysisResponse:
+    parsed = await read_uploaded_resume(file)
+    try:
+        analyzer = build_resume_analyzer()
+        profile = await analyzer.analyze(parsed.text)
+    except LLMConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except LLMServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    return ResumeAnalysisResponse(
+        filename=parsed.filename,
+        provider=analyzer.provider,
+        model=analyzer.model,
+        profile=profile,
     )

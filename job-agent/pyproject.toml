@@ -9,6 +9,7 @@ description = "一个基于证据分析简历与实习岗位描述匹配度的 A
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi>=0.115,<1",
+    "openai>=2.38,<3",
     "pymupdf>=1.25,<2",
     "python-docx>=1.1,<2",
     "python-multipart>=0.0.20,<1",

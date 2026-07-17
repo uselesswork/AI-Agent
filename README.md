@@ -16,6 +16,16 @@
 - 对空文件、损坏文件、不支持格式和无文字 PDF 返回明确错误
 - 扫描版 PDF 暂不进行 OCR，会提示用户先完成文字识别
 
+第二阶段的候选人画像功能已经完成：
+
+- 使用 Pydantic 定义严格的候选人画像结构
+- 提取基本信息、求职方向、教育、技能、项目、实践、证书与荣誉
+- 每项经历和技能可以保留简历原文证据
+- 缺失或无法确认的信息通过 `warnings` 返回，不允许模型自行补全
+- 提供 `POST /api/resumes/analyze` 结构化分析接口
+- 前端页面可以生成并分区展示候选人画像
+- 通过同一套 OpenAI Python SDK 支持 OpenAI 和 DeepSeek
+
 ## 本地运行
 
 推荐直接调用虚拟环境中的 Python，不依赖 PowerShell 激活脚本：
@@ -42,6 +52,41 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 `Process` 作用域只影响当前 PowerShell 窗口，关闭窗口后自动失效。
 
+## 配置大模型
+
+先复制环境变量示例文件：
+
+```powershell
+cd D:\Agent\job-agent
+Copy-Item .env.example .env
+```
+
+`.env` 已被 Git 忽略，不要把真实 API Key 写入代码、README 或提交记录。
+
+### 使用 OpenAI
+
+编辑 `.env`：
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=你的_OpenAI_API_Key
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+### 使用 DeepSeek
+
+编辑 `.env`：
+
+```env
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=你的_DeepSeek_API_Key
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+```
+
+切换服务商后需要重新启动 FastAPI。项目只支持 `openai` 和 `deepseek` 两个 `LLM_PROVIDER` 值，其他值会在启动配置校验时被拒绝。
+
 ## 解析简历
 
 ### 使用前端页面
@@ -53,6 +98,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - 文件处理状态
 - 完整简历正文
 - 复制正文按钮
+- 生成结构化候选人画像
+- 查看技能和经历对应的简历原文证据
 
 ### 使用接口文档
 
@@ -79,6 +126,40 @@ POST /api/resumes/parse
 - `413`：文件超过 10 MB
 - `415`：文件格式不受支持
 - `422`：文档中没有可提取文字，扫描版 PDF 需要先进行 OCR
+- `502`：大模型调用失败、超时或返回的数据不符合画像结构
+- `503`：当前服务商的 API Key 未配置
+
+## 候选人画像接口
+
+```text
+POST /api/resumes/analyze
+```
+
+接口接收与解析接口相同的简历文件，并返回当前服务商、模型名称和候选人画像：
+
+```json
+{
+  "filename": "resume.pdf",
+  "provider": "openai",
+  "model": "gpt-5.6-luna",
+  "profile": {
+    "basic_info": {
+      "name": "张晨",
+      "email": "zhangchen@example.com",
+      "phone": null,
+      "location": "上海",
+      "links": []
+    },
+    "job_targets": ["Python 后端开发实习生"],
+    "education": [],
+    "skills": [],
+    "projects": [],
+    "experiences": [],
+    "certificates": [],
+    "warnings": ["简历中未找到手机号码"]
+  }
+}
+```
 
 ## 运行测试
 
@@ -99,12 +180,18 @@ cd D:\Agent\job-agent
 
 ```text
 app/api/resumes.py                 简历上传接口与请求校验
+app/core/config.py                 OpenAI、DeepSeek 环境配置
+app/models/candidate.py            候选人画像数据模型
+app/prompts/resume_analysis.py     简历结构化提示词
 app/services/document_parser.py   PDF、DOCX、TXT 文本解析
+app/services/llm.py               OpenAI 兼容模型客户端
+app/services/resume_analyzer.py   候选人画像分析服务
 app/static/index.html             前端测试页面结构
 app/static/styles.css             前端页面样式与响应式布局
 app/static/app.js                 上传、解析、复制等交互逻辑
 tests/test_document_parser.py     文档解析单元测试
 tests/test_resume_api.py          简历上传接口测试
+tests/test_resume_analysis_api.py 候选人画像接口测试
 tests/test_frontend.py            前端页面与静态资源测试
 ```
 
@@ -122,4 +209,4 @@ D:\Agent\test\测试简历模板.txt
 
 ## 下一阶段
 
-下一步将把简历正文转换为结构化候选人画像，包括教育经历、技能、项目经历、实习经历和求职方向。
+下一步将实现岗位 JD 结构化，把岗位要求拆分为硬性要求、加分项、职责、技能和经验要求，为后续简历匹配分析做准备。

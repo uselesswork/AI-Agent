@@ -17,6 +17,16 @@ const resultCount = document.querySelector("#result-count");
 const resultFilename = document.querySelector("#result-filename");
 const resumeText = document.querySelector("#resume-text");
 const copyButton = document.querySelector("#copy-button");
+const analyzeButton = document.querySelector("#analyze-button");
+const profilePanel = document.querySelector("#profile-panel");
+const profileProvider = document.querySelector("#profile-provider");
+const profileModel = document.querySelector("#profile-model");
+const profileBasic = document.querySelector("#profile-basic");
+const profileTargetBlock = document.querySelector("#profile-target-block");
+const profileTargets = document.querySelector("#profile-targets");
+const profileSections = document.querySelector("#profile-sections");
+const profileWarnings = document.querySelector("#profile-warnings");
+const profileWarningList = document.querySelector("#profile-warning-list");
 
 let currentFile = null;
 
@@ -44,6 +54,145 @@ function clearResult() {
   resultContent.classList.add("is-hidden");
   emptyState.classList.remove("is-hidden");
   resumeText.textContent = "";
+  profilePanel.classList.add("is-hidden");
+}
+
+function createElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined && text !== null) element.textContent = text;
+  return element;
+}
+
+function displayValue(value) {
+  if (Array.isArray(value)) return value.length ? value.join(" · ") : "未提供";
+  return value || "未提供";
+}
+
+function addSummaryItem(label, value) {
+  const item = createElement("div", "profile-summary-item");
+  item.append(createElement("span", "", label), createElement("strong", "", displayValue(value)));
+  profileBasic.append(item);
+}
+
+function addEvidence(container, evidence) {
+  if (!evidence?.length) return;
+  const details = createElement("details", "evidence-list");
+  details.append(createElement("summary", "", `查看原文证据（${evidence.length}）`));
+  for (const item of evidence) {
+    const quote = createElement("blockquote", "", item.quote);
+    if (item.source_section) quote.title = `来源章节：${item.source_section}`;
+    details.append(quote);
+  }
+  container.append(details);
+}
+
+function addList(container, values) {
+  if (!values?.length) return;
+  const list = createElement("ul");
+  for (const value of values) list.append(createElement("li", "", value));
+  container.append(list);
+}
+
+function addProfileSection(title, items, renderer) {
+  if (!items?.length) return;
+  const section = createElement("section", "profile-section");
+  section.append(createElement("h3", "", title));
+  for (const item of items) section.append(renderer(item));
+  profileSections.append(section);
+}
+
+function createCard(title, meta, description, bullets, evidence) {
+  const card = createElement("article", "profile-card");
+  card.append(createElement("h4", "", title || "未命名"));
+  if (meta) card.append(createElement("p", "profile-card-meta", meta));
+  if (description) card.append(createElement("p", "", description));
+  addList(card, bullets);
+  addEvidence(card, evidence);
+  return card;
+}
+
+function renderProfile(data) {
+  const profile = data.profile;
+  profileBasic.replaceChildren();
+  profileTargets.replaceChildren();
+  profileSections.replaceChildren();
+  profileWarningList.replaceChildren();
+
+  profileProvider.textContent = data.provider;
+  profileModel.textContent = data.model;
+  addSummaryItem("姓名", profile.basic_info.name);
+  addSummaryItem("邮箱", profile.basic_info.email);
+  addSummaryItem("电话", profile.basic_info.phone);
+  addSummaryItem("所在地", profile.basic_info.location);
+
+  if (profile.job_targets.length) {
+    for (const target of profile.job_targets) {
+      profileTargets.append(createElement("span", "tag", target));
+    }
+    profileTargetBlock.classList.remove("is-hidden");
+  } else {
+    profileTargetBlock.classList.add("is-hidden");
+  }
+
+  if (profile.summary) {
+    addProfileSection("个人概述", [profile.summary], (summary) =>
+      createCard("简历概述", "", summary, [], []),
+    );
+  }
+  addProfileSection("教育经历", profile.education, (item) =>
+    createCard(
+      item.institution,
+      [item.degree, item.major, item.start_date, item.end_date, item.gpa]
+        .filter(Boolean)
+        .join(" · "),
+      "",
+      item.courses,
+      item.evidence,
+    ),
+  );
+  addProfileSection("专业技能", profile.skills, (item) =>
+    createCard(
+      item.name,
+      [item.category, item.level].filter(Boolean).join(" · "),
+      "",
+      [],
+      item.evidence,
+    ),
+  );
+  addProfileSection("项目经历", profile.projects, (item) =>
+    createCard(
+      item.name,
+      [item.role, item.start_date, item.end_date].filter(Boolean).join(" · "),
+      item.description,
+      [...item.technologies.map((value) => `技术：${value}`), ...item.highlights],
+      item.evidence,
+    ),
+  );
+  addProfileSection("实践经历", profile.experiences, (item) =>
+    createCard(
+      item.organization,
+      [item.role, item.start_date, item.end_date].filter(Boolean).join(" · "),
+      "",
+      item.highlights,
+      item.evidence,
+    ),
+  );
+  addProfileSection("证书与荣誉", profile.certificates, (item) =>
+    createCard(item.name, item.date || "", "", [], item.evidence),
+  );
+
+  if (profile.warnings.length) {
+    for (const warning of profile.warnings) {
+      profileWarningList.append(createElement("li", "", warning));
+    }
+    profileWarnings.classList.remove("is-hidden");
+  } else {
+    profileWarnings.classList.add("is-hidden");
+  }
+
+  profilePanel.classList.remove("is-hidden");
+  profilePanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function validateFile(file) {
@@ -143,6 +292,40 @@ parseButton.addEventListener("click", async () => {
     parseButton.disabled = false;
     parseButton.classList.remove("is-loading");
     parseButton.querySelector("span:first-child").textContent = "开始解析";
+  }
+});
+
+analyzeButton.addEventListener("click", async () => {
+  const error = validateFile(currentFile);
+  if (error) {
+    showMessage(error);
+    return;
+  }
+
+  clearMessage();
+  profilePanel.classList.add("is-hidden");
+  analyzeButton.disabled = true;
+  const originalText = analyzeButton.querySelector("strong").textContent;
+  analyzeButton.querySelector("strong").textContent = "正在生成画像...";
+
+  const formData = new FormData();
+  formData.append("file", currentFile);
+
+  try {
+    const response = await fetch("/api/resumes/analyze", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || `画像生成失败，服务器返回 ${response.status}。`);
+    }
+    renderProfile(data);
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "画像生成失败，请稍后重试。");
+  } finally {
+    analyzeButton.disabled = false;
+    analyzeButton.querySelector("strong").textContent = originalText;
   }
 });
 

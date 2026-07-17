@@ -11,6 +11,7 @@ def test_frontend_page_is_available() -> None:
     assert response.status_code == 200
     assert "AI 求职助手" in response.text
     assert "上传测试简历" in response.text
+    assert "生成候选人画像" in response.text
     assert "/api/resumes/parse" not in response.text
 
 
@@ -28,3 +29,4 @@ def test_frontend_assets_are_available() -> None:
     assert "--green" in css_response.text
     assert js_response.status_code == 200
     assert 'fetch("/api/resumes/parse"' in js_response.text
+    assert 'fetch("/api/resumes/analyze"' in js_response.text
