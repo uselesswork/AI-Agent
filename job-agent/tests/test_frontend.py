@@ -37,3 +37,5 @@ def test_frontend_assets_are_available() -> None:
     assert 'formData.append("provider"' in js_response.text
     assert 'fetch("/api/jobs/parse"' in js_response.text
     assert 'fetch("/api/matches/analyze"' in js_response.text
+    assert 'input[name="match-provider"]:checked' in js_response.text
+    assert "选择匹配报告模型" in js_response.text

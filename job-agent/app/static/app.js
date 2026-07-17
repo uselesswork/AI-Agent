@@ -223,6 +223,32 @@ function selectedProvider() {
   return document.querySelector('input[name="provider"]:checked')?.value ?? "openai";
 }
 
+function selectedMatchProvider() {
+  return document.querySelector('input[name="match-provider"]:checked')?.value ?? "openai";
+}
+
+function createMatchProviderPicker() {
+  const picker = createElement("fieldset", "provider-picker match-provider-picker");
+  picker.append(createElement("legend", "", "选择匹配报告模型"));
+  for (const provider of ["openai", "deepseek"]) {
+    const label = createElement("label");
+    const input = createElement("input");
+    input.type = "radio";
+    input.name = "match-provider";
+    input.value = provider;
+    input.checked = provider === selectedProvider();
+    const text = createElement("span");
+    const displayName = provider === "openai" ? "OpenAI" : "DeepSeek";
+    text.append(
+      createElement("strong", "", displayName),
+      createElement("small", "", `使用 ${provider.toUpperCase()} 配置生成匹配报告`),
+    );
+    label.append(input, text);
+    picker.append(label);
+  }
+  return picker;
+}
+
 function renderJob(profile) {
   jobPreview.replaceChildren();
   const title = createElement("h3", "job-preview-title", profile.title || "未识别岗位名称");
@@ -240,6 +266,7 @@ function renderJob(profile) {
     addList(section, values);
     jobPreview.append(section);
   }
+  jobPreview.append(createMatchProviderPicker());
   const button = createElement("button", "analysis-button match-button");
   button.type = "button";
   button.id = "analyze-match-button";
@@ -302,7 +329,7 @@ async function analyzeMatch(event) {
       body: JSON.stringify({
         candidate_profile: currentCandidateProfile,
         job_profile: currentJobProfile,
-        provider: selectedProvider(),
+        provider: selectedMatchProvider(),
       }),
     });
     const data = await response.json();
