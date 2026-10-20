@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 60
     llm_max_retries: int = 2
     llm_max_output_tokens: int = 4096
+    database_url: str = (
+        "mysql+pymysql://job_agent:请修改密码@127.0.0.1:3306/job_agent?charset=utf8mb4"
+    )
+
+    def validated_database_url(self) -> str:
+        url = self.database_url.strip()
+        if not url.startswith("mysql+pymysql://"):
+            raise LLMConfigurationError(
+                "DATABASE_URL 必须使用 mysql+pymysql:// 格式，请检查 MySQL 配置。"
+            )
+        return url
 
     def provider_config(
         self, provider: Literal["openai", "deepseek"] | None = None

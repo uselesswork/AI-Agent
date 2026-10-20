@@ -2,6 +2,28 @@
 
 这是一个基于证据分析简历与实习岗位描述匹配度的 AI Agent 项目。
 
+## 阶段文档索引
+
+根目录 `README.md` 是项目总入口，持续维护当前进度、启动配置、接口索引、测试方法和下一步计划。详细实施说明放在 `docs` 目录，便于快速了解各阶段的成果、文件职责和实现边界。
+
+| 阶段 | 核心成果 | 详细说明 |
+| --- | --- | --- |
+| 第一阶段 | 三种格式简历上传、文本提取和中文页面 | [简历上传与文本解析](docs/第一阶段-简历上传与文本解析.md) |
+| 第二阶段 | 两家模型接入、候选人画像和原文证据 | [候选人画像与模型接入](docs/第二阶段-候选人画像与模型接入.md) |
+| 第三阶段 | 岗位结构化、五维匹配报告和独立模型选择 | [岗位解析与匹配报告](docs/第三阶段-岗位解析与匹配报告.md) |
+| 第四阶段 | 岗位记录保存、投递看板和 MySQL | [求职看板与 MySQL 持久化](docs/第四阶段-求职看板与MySQL持久化.md) |
+
+每份说明包含成果总览、文件归属与作用、数据流、接口、测试、限制和维护事项。文件归属按阶段功能梳理，共享文件持续扩展，不等同于某一次提交的精确新增清单。
+
+### 文档维护约定
+
+- 后续功能、接口、配置、依赖或目录变化时，在同一次工作中更新本 README 和对应阶段说明，统一使用中文。
+- README 保持总览和运行入口，实现细节与阶段边界放在阶段文档。
+- 新增阶段时创建独立说明并补充索引；修改已有阶段时更新文档核对日期。
+- 明确区分已实现、提示词约束、待完善和验证范围；不能将模拟测试通过写成真实模型或 MySQL 联调成功。
+- 示例只使用占位密钥和密码，不复制 `.env` 中的真实信息。
+- 本轮文档核对日期：2026-10-20；本轮仅整理文档，没有重新运行应用测试或外部服务联调。
+
 ## 当前进度
 
 第一阶段的简历上传与文本解析功能已经完成：
@@ -38,6 +60,24 @@
 - 生成匹配报告前可单独选择 OpenAI 或 DeepSeek，不受前面画像分析选择限制
 - 优化建议只能调整真实内容的表达与顺序，不允许编造经历
 - 提供 `POST /api/jobs/parse` 和 `POST /api/matches/analyze` 接口
+
+第四阶段的求职看板已经完成：
+
+- 使用 MySQL 保存岗位画像、候选人画像和完整匹配报告
+- 保存岗位链接、个人备注和当前投递状态
+- 支持待投递、已投递、笔试、面试、Offer、已拒绝六种状态
+- 支持按状态筛选，以及按更新时间或匹配分排序
+- 可直接在看板中更新状态、岗位链接和备注
+- 支持查看岗位摘要和删除不再需要的记录
+- 保存及管理历史报告不会再次调用大模型
+- 提供完整的投递记录增删改查接口
+
+### 当前实现边界
+
+- 匹配分由大模型生成；后端检查范围、五个维度和权重总和，但尚未重新计算总分或逐字核验引用证据。
+- 第四阶段详情接口可以读取完整历史报告；前端“查看与编辑”目前仅展开链接和备注，尚未实现完整历史报告回看。
+- 当前持久化使用 SQLAlchemy Core 和 MySQL，没有 Alembic 迁移；数据库自动化测试使用临时 SQLite。
+- 各阶段说明中列出了更完整的实现限制与后续完善事项。
 
 ## 本地运行
 
@@ -118,6 +158,7 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 - 查看技能和经历对应的简历原文证据
 - 粘贴并结构化解析岗位描述
 - 生成五维匹配评分和针对岗位的简历优化建议
+- 保存匹配报告并通过求职看板管理投递进度
 
 ### 使用接口文档
 
@@ -138,7 +179,7 @@ POST /api/resumes/parse
 }
 ```
 
-接口可能返回的状态码：
+简历解析与画像分析相关状态码如下，其中 `502` 和 `503` 属于模型分析接口：
 
 - `400`：文件为空、损坏或无法解析
 - `413`：文件超过 10 MB
@@ -202,11 +243,42 @@ POST /api/jobs/parse
 POST /api/matches/analyze
 ```
 
-请求体为 JSON，包含第二阶段返回的 `candidate_profile`、岗位解析返回的 `job_profile`，以及可选的 `provider`。接口返回总分、投递建议、五个评分维度、岗位要求逐项判断、优势、差距和简历优化建议。
+请求体为 JSON：将第二阶段响应的 `profile` 放入 `candidate_profile`，将岗位解析响应的 `profile` 放入 `job_profile`，并提供可选的 `provider`。接口返回总分、投递建议、五个评分维度、岗位要求逐项判断、优势、差距和简历优化建议。
 
 前端使用流程为：上传并解析简历 → 生成候选人画像 → 粘贴岗位描述 → 解析岗位要求 → 生成匹配报告。岗位解析和匹配分析会分别调用一次当前选择的大模型。
 
 岗位解析使用第二阶段模型选择区域中的服务商。岗位解析完成后，第三阶段会在“生成匹配报告”按钮上方显示独立的 OpenAI、DeepSeek 选择项；用户可以为匹配报告重新选择服务商，本次选择只影响匹配分析请求，不需要修改 `.env` 或重启服务。
+
+## 求职看板接口
+
+```text
+POST   /api/applications       保存岗位与匹配报告
+GET    /api/applications       获取投递记录列表
+GET    /api/applications/{id}  获取完整投递记录
+PATCH  /api/applications/{id}  更新状态、链接或备注
+DELETE /api/applications/{id}  删除投递记录
+```
+
+列表接口支持 `status` 和 `sort` 查询参数。`sort` 可选 `updated_desc`、`score_desc` 或 `score_asc`。投递数据保存在 MySQL 中，连接地址通过 `.env` 中的 `DATABASE_URL` 配置。
+
+## 配置 MySQL
+
+项目使用 SQLAlchemy 2 和 PyMySQL 连接 MySQL。请先在 MySQL 中创建数据库和专用账号，下面以 MySQL 8 为例：
+
+```sql
+CREATE DATABASE job_agent CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'job_agent'@'localhost' IDENTIFIED BY '请替换为强密码';
+GRANT ALL PRIVILEGES ON job_agent.* TO 'job_agent'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+然后修改 `D:\Agent\job-agent\.env`：
+
+```env
+DATABASE_URL=mysql+pymysql://job_agent:你的密码@127.0.0.1:3306/job_agent?charset=utf8mb4
+```
+
+如果密码包含 `@`、`:`、`/`、`#` 等特殊字符，需要先进行 URL 编码。首次访问投递管理接口时，仓储初始化会尝试创建尚不存在的 `applications` 表；数据库本身和账号需要提前创建。当前没有自动升级已有表结构或迁移旧 SQLite 数据的脚本。生产环境应使用权限受限的独立账号，不建议直接使用 `root`。
 
 ## 运行测试
 
@@ -225,26 +297,32 @@ cd D:\Agent\job-agent
 
 ## 项目结构
 
+下面的应用和测试路径相对 `job-agent`；各阶段完整文件职责清单见上方文档索引。
+
 ```text
 app/api/resumes.py                 简历上传接口与请求校验
+app/api/applications.py           投递记录增删改查接口
 app/api/jobs.py                    岗位描述解析接口
 app/api/matches.py                 简历与岗位匹配接口
-app/core/config.py                 OpenAI、DeepSeek 环境配置
+app/core/config.py                 OpenAI、DeepSeek 和 MySQL 环境配置
 app/models/candidate.py            候选人画像数据模型
+app/models/application.py         投递记录数据模型
 app/models/job.py                  岗位画像数据模型
 app/models/match.py                匹配评分数据模型
 app/prompts/resume_analysis.py     简历结构化提示词
 app/prompts/job_analysis.py        岗位结构化提示词
 app/prompts/match_analysis.py      匹配评分提示词
 app/services/document_parser.py   PDF、DOCX、TXT 文本解析
+app/services/application_repository.py MySQL 持久化服务
 app/services/llm.py               OpenAI 兼容模型客户端
 app/services/resume_analyzer.py   候选人画像分析服务
 app/services/job_analyzer.py      岗位描述分析服务
 app/services/match_analyzer.py    简历与岗位匹配服务
 app/static/index.html             前端测试页面结构
 app/static/styles.css             前端页面样式与响应式布局
-app/static/app.js                 上传、解析、复制等交互逻辑
+app/static/app.js                 上传、画像、岗位匹配与求职看板交互
 tests/test_document_parser.py     文档解析单元测试
+tests/test_applications_api.py    求职看板接口与数据库测试
 tests/test_resume_api.py          简历上传接口测试
 tests/test_resume_analysis_api.py 候选人画像接口测试
 tests/test_job_match_api.py       岗位解析与匹配接口测试
@@ -275,4 +353,4 @@ D:\Agent\test\测试岗位描述.txt
 
 ## 下一阶段
 
-下一步可以实现岗位收藏、多个岗位横向排序和投递状态管理，并把每次匹配报告保存到本地数据库，形成可持续使用的求职工作台。
+下一步可以实现第五阶段：根据岗位匹配报告生成定制版简历建议稿和求职信，并提供 DOCX 或 PDF 导出。生成内容必须以真实简历为依据，不得编造经历。

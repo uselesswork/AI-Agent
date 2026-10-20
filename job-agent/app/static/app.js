@@ -43,10 +43,20 @@ const matchStrengths = document.querySelector("#match-strengths");
 const matchGaps = document.querySelector("#match-gaps");
 const matchSuggestions = document.querySelector("#match-suggestions");
 const matchAssessments = document.querySelector("#match-assessments");
+const saveJobUrl = document.querySelector("#save-job-url");
+const saveStatus = document.querySelector("#save-status");
+const saveNotes = document.querySelector("#save-notes");
+const saveApplicationButton = document.querySelector("#save-application-button");
+const applicationFilter = document.querySelector("#application-filter");
+const applicationSort = document.querySelector("#application-sort");
+const applicationCount = document.querySelector("#application-count");
+const applicationGrid = document.querySelector("#application-grid");
+const refreshApplications = document.querySelector("#refresh-applications");
 
 let currentFile = null;
 let currentCandidateProfile = null;
 let currentJobProfile = null;
+let currentMatchData = null;
 
 function extensionOf(filename) {
   return filename.split(".").pop()?.toLowerCase() ?? "";
@@ -77,6 +87,7 @@ function clearResult() {
   matchPanel.classList.add("is-hidden");
   currentCandidateProfile = null;
   currentJobProfile = null;
+  currentMatchData = null;
 }
 
 function createElement(tag, className, text) {
@@ -282,6 +293,7 @@ function fillList(element, values, emptyText) {
 
 function renderMatch(data) {
   const result = data.result;
+  currentMatchData = data;
   matchProvider.textContent = data.provider;
   matchModel.textContent = data.model;
   matchScore.textContent = result.overall_score;
@@ -313,6 +325,111 @@ function renderMatch(data) {
   }
   matchPanel.classList.remove("is-hidden");
   matchPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+const APPLICATION_STATUSES = ["待投递", "已投递", "笔试", "面试", "Offer", "已拒绝"];
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+async function updateApplication(id, changes) {
+  const response = await fetch(`/api/applications/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(changes),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "更新投递记录失败。");
+  await loadApplications();
+}
+
+function createApplicationCard(item) {
+  const card = createElement("article", "application-card");
+  const top = createElement("div", "application-card-top");
+  const heading = createElement("div");
+  heading.append(
+    createElement("span", "application-company", item.company || "未填写公司"),
+    createElement("h3", "", item.title || "未识别岗位"),
+    createElement("small", "", [item.location, `更新于 ${formatDate(item.updated_at)}`].filter(Boolean).join(" · ")),
+  );
+  const score = createElement("strong", "application-score", item.overall_score);
+  score.title = "岗位匹配分";
+  top.append(heading, score);
+  card.append(top);
+
+  const controls = createElement("div", "application-controls");
+  const statusSelect = createElement("select");
+  statusSelect.setAttribute("aria-label", `${item.title || "岗位"}的投递状态`);
+  for (const status of APPLICATION_STATUSES) {
+    const option = createElement("option", "", status);
+    option.selected = status === item.status;
+    statusSelect.append(option);
+  }
+  statusSelect.addEventListener("change", async () => {
+    try { await updateApplication(item.id, { status: statusSelect.value }); }
+    catch (error) { showMessage(error.message); }
+  });
+  const detailsButton = createElement("button", "text-button", "查看与编辑");
+  const deleteButton = createElement("button", "text-button danger-button", "删除");
+  controls.append(statusSelect, detailsButton, deleteButton);
+  card.append(controls);
+
+  const details = createElement("div", "application-details is-hidden");
+  const urlInput = createElement("input");
+  urlInput.type = "url";
+  urlInput.placeholder = "岗位链接";
+  urlInput.value = item.job_url || "";
+  const notesInput = createElement("textarea");
+  notesInput.rows = 3;
+  notesInput.placeholder = "投递备注";
+  notesInput.value = item.notes || "";
+  const saveButton = createElement("button", "copy-button", "保存修改");
+  if (item.job_url) {
+    const link = createElement("a", "job-link", "打开岗位链接 ↗");
+    link.href = item.job_url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    details.append(link);
+  }
+  details.append(urlInput, notesInput, saveButton);
+  detailsButton.addEventListener("click", () => details.classList.toggle("is-hidden"));
+  saveButton.addEventListener("click", async () => {
+    try {
+      await updateApplication(item.id, { job_url: urlInput.value.trim() || null, notes: notesInput.value.trim() || null });
+    } catch (error) { showMessage(error.message); }
+  });
+  deleteButton.addEventListener("click", async () => {
+    if (!window.confirm(`确定删除“${item.title || "该岗位"}”的投递记录吗？`)) return;
+    try {
+      const response = await fetch(`/api/applications/${item.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("删除投递记录失败。");
+      await loadApplications();
+    } catch (error) { showMessage(error.message); }
+  });
+  card.append(details);
+  return card;
+}
+
+async function loadApplications() {
+  const params = new URLSearchParams({ sort: applicationSort.value });
+  if (applicationFilter.value) params.set("status", applicationFilter.value);
+  applicationCount.textContent = "正在读取投递记录…";
+  try {
+    const response = await fetch(`/api/applications?${params}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "读取投递记录失败。");
+    applicationGrid.replaceChildren();
+    applicationCount.textContent = `共 ${data.length} 个岗位`;
+    if (!data.length) {
+      applicationGrid.append(createElement("p", "board-empty", "暂无符合条件的投递记录。生成匹配报告后，可以把岗位保存到这里。"));
+      return;
+    }
+    for (const item of data) applicationGrid.append(createApplicationCard(item));
+  } catch (error) {
+    applicationCount.textContent = "投递记录读取失败";
+    showMessage(error instanceof Error ? error.message : "读取投递记录失败。");
+  }
 }
 
 async function analyzeMatch(event) {
@@ -493,6 +610,49 @@ copyButton.addEventListener("click", async () => {
 jobDescription.addEventListener("input", () => {
   jobCharacterCount.textContent = jobDescription.value.length.toLocaleString("zh-CN");
 });
+
+saveApplicationButton.addEventListener("click", async () => {
+  if (!currentCandidateProfile || !currentJobProfile || !currentMatchData) {
+    showMessage("请先完成简历、岗位和匹配报告分析。");
+    return;
+  }
+  saveApplicationButton.disabled = true;
+  saveApplicationButton.querySelector("span:first-child").textContent = "正在保存…";
+  try {
+    const response = await fetch("/api/applications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resume_filename: currentFile?.name || "未知简历",
+        candidate_profile: currentCandidateProfile,
+        job_profile: currentJobProfile,
+        match_result: currentMatchData.result,
+        provider: currentMatchData.provider,
+        model: currentMatchData.model,
+        status: saveStatus.value,
+        job_url: saveJobUrl.value.trim() || null,
+        notes: saveNotes.value.trim() || null,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "保存投递记录失败。");
+    saveApplicationButton.querySelector("span:first-child").textContent = "保存成功";
+    await loadApplications();
+    document.querySelector("#applications-panel").scrollIntoView({ behavior: "smooth" });
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "保存投递记录失败。");
+  } finally {
+    window.setTimeout(() => {
+      saveApplicationButton.disabled = false;
+      saveApplicationButton.querySelector("span:first-child").textContent = "保存岗位与匹配报告";
+    }, 900);
+  }
+});
+
+applicationFilter.addEventListener("change", loadApplications);
+applicationSort.addEventListener("change", loadApplications);
+refreshApplications.addEventListener("click", loadApplications);
+loadApplications();
 
 parseJobButton.addEventListener("click", async () => {
   const description = jobDescription.value.trim();

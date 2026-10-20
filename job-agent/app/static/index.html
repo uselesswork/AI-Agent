@@ -222,6 +222,52 @@
             <section><h3>简历优化建议</h3><ul id="match-suggestions"></ul></section>
           </div>
           <div class="assessment-list" id="match-assessments"></div>
+          <div class="save-application">
+            <div>
+              <h3>保存到求职看板</h3>
+              <p>保存后可持续更新投递状态、岗位链接和备注，无需再次调用大模型。</p>
+            </div>
+            <div class="save-fields">
+              <label>岗位链接<input id="save-job-url" type="url" placeholder="https://example.com/job" /></label>
+              <label>初始状态
+                <select id="save-status">
+                  <option>待投递</option><option>已投递</option><option>笔试</option>
+                  <option>面试</option><option>Offer</option><option>已拒绝</option>
+                </select>
+              </label>
+              <label class="wide-field">备注<textarea id="save-notes" rows="3" maxlength="5000" placeholder="记录截止日期、联系人或下一步计划"></textarea></label>
+            </div>
+            <button class="primary-button" id="save-application-button" type="button">
+              <span>保存岗位与匹配报告</span><span aria-hidden="true">＋</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="applications-panel" id="applications-panel" aria-labelledby="applications-title">
+          <div class="profile-header">
+            <div>
+              <p class="eyebrow">第四阶段 · 投递管理</p>
+              <h2 id="applications-title">我的求职看板</h2>
+            </div>
+            <button class="copy-button" id="refresh-applications" type="button">刷新记录</button>
+          </div>
+          <div class="board-toolbar">
+            <label>投递状态
+              <select id="application-filter">
+                <option value="">全部状态</option><option>待投递</option><option>已投递</option>
+                <option>笔试</option><option>面试</option><option>Offer</option><option>已拒绝</option>
+              </select>
+            </label>
+            <label>排序方式
+              <select id="application-sort">
+                <option value="updated_desc">最近更新</option>
+                <option value="score_desc">匹配分从高到低</option>
+                <option value="score_asc">匹配分从低到高</option>
+              </select>
+            </label>
+          </div>
+          <div class="application-count" id="application-count">正在读取投递记录…</div>
+          <div class="application-grid" id="application-grid"></div>
         </section>
 
         <section class="notes" aria-labelledby="notes-title">
@@ -250,7 +296,7 @@
       </main>
 
       <footer>
-        <span>AI 求职助手 · 第一、二、三阶段测试页面</span>
+        <span>AI 求职助手 · 第一至第四阶段测试页面</span>
         <a href="/docs">打开接口文档</a>
       </footer>
     </div>

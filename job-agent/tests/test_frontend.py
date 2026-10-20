@@ -16,6 +16,8 @@ def test_frontend_page_is_available() -> None:
     assert 'value="deepseek"' in response.text
     assert "粘贴岗位描述" in response.text
     assert "简历与岗位匹配度" in response.text
+    assert "我的求职看板" in response.text
+    assert "保存岗位与匹配报告" in response.text
     assert "/api/resumes/parse" not in response.text
 
 
@@ -39,3 +41,5 @@ def test_frontend_assets_are_available() -> None:
     assert 'fetch("/api/matches/analyze"' in js_response.text
     assert 'input[name="match-provider"]:checked' in js_response.text
     assert "选择匹配报告模型" in js_response.text
+    assert 'fetch("/api/applications"' in js_response.text
+    assert "loadApplications" in js_response.text

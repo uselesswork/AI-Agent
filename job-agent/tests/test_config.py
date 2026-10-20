@@ -35,3 +35,15 @@ def test_selected_provider_requires_api_key() -> None:
 
     with pytest.raises(LLMConfigurationError, match="DEEPSEEK_API_KEY"):
         settings.provider_config()
+
+
+def test_mysql_database_url_is_required() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url="mysql+pymysql://user:password@127.0.0.1:3306/job_agent",
+    )
+    assert settings.validated_database_url().startswith("mysql+pymysql://")
+
+    invalid = Settings(_env_file=None, database_url="sqlite:///./job_agent.db")
+    with pytest.raises(LLMConfigurationError):
+        invalid.validated_database_url()

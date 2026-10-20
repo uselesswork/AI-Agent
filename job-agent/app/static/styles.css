@@ -29,7 +29,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -683,6 +684,59 @@ a {
 .status-满足 { color: #1d6940; background: #dce9df; }
 .status-不满足 { color: var(--danger); background: #f8e7e3; }
 
+.save-application {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #faf9f4;
+}
+
+.save-application h3 { margin: 0; font-size: 14px; }
+.save-application > div > p { margin: 6px 0 18px; color: var(--muted); font-size: 10px; }
+.save-fields { display: grid; grid-template-columns: 1fr 0.45fr; gap: 12px; }
+.save-fields label, .board-toolbar label { color: var(--muted); font-size: 9px; font-weight: 700; }
+.save-fields input, .save-fields textarea, .save-fields select,
+.board-toolbar select, .application-controls select, .application-details input,
+.application-details textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: white;
+  font-size: 10px;
+}
+.wide-field { grid-column: 1 / -1; }
+
+.applications-panel {
+  margin-top: 28px;
+  padding: 42px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.board-toolbar { display: flex; gap: 12px; padding: 24px 0 16px; }
+.board-toolbar label { width: min(220px, 50%); }
+.application-count { margin-bottom: 12px; color: var(--muted); font-size: 10px; }
+.application-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.application-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #faf9f4; }
+.application-card-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
+.application-company { display: block; margin-bottom: 7px; color: var(--green); font-size: 9px; font-weight: 800; }
+.application-card h3 { margin: 0; font-size: 14px; }
+.application-card small { display: block; margin-top: 6px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+.application-score { color: var(--green); font: 500 30px/1 Georgia, serif; }
+.application-controls { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin-top: 18px; }
+.application-controls select { margin: 0; }
+.danger-button { color: var(--danger); }
+.application-details { display: grid; gap: 9px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.application-details input, .application-details textarea { margin: 0; }
+.job-link { color: var(--green); font-size: 9px; font-weight: 700; text-decoration: none; }
+.board-empty { grid-column: 1 / -1; margin: 0; padding: 48px 20px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; font-size: 11px; }
+
 .profile-header {
   display: flex;
   align-items: flex-end;
@@ -932,6 +986,8 @@ a:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .application-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
   .hero {
     gap: 34px;
     padding-top: 52px;
@@ -987,9 +1043,16 @@ a:focus-visible {
   }
 
   .job-match-panel,
-  .match-panel { padding: 26px 18px; border-radius: 22px; }
+  .match-panel,
+  .applications-panel { padding: 26px 18px; border-radius: 22px; }
 
   .match-hero { grid-template-columns: 1fr; }
+
+  .save-fields,
+  .application-grid { grid-template-columns: 1fr; }
+
+  .board-toolbar { align-items: stretch; flex-direction: column; }
+  .board-toolbar label { width: 100%; }
 
   .profile-header {
     gap: 18px;
