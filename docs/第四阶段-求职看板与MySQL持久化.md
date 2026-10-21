@@ -1,6 +1,6 @@
 # 第四阶段：求职看板与 MySQL 持久化
 
-> 核对日期：2026-10-20。最初使用 SQLite，当前运行配置已切换为 MySQL；仓储自动化测试仍使用临时 SQLite。
+> 核对日期：2026-10-21。最初使用 SQLite，当前运行配置已切换为 MySQL；仓储自动化测试仍使用临时 SQLite。
 > [返回项目说明](../README.md) · [上一阶段](第三阶段-岗位解析与匹配报告.md)
 
 ## 1. 成果总览
@@ -83,6 +83,9 @@
 | `job-agent/tests/test_applications_api.py` | 本阶段引入 | 临时数据库 CRUD、非法状态 |
 | `job-agent/tests/test_config.py` | 扩展已有测试 | MySQL 配置可用，运行配置拒绝 SQLite 地址 |
 | `job-agent/tests/test_frontend.py` | 扩展已有测试 | 保存入口、看板文字与请求代码 |
+| `job-agent/scripts/__init__.py` | 测试数据工具新增 | 维护脚本包入口 |
+| `job-agent/scripts/seed_applications.py` | 测试数据工具新增 | 构造六种状态的虚构记录，校验结构、事务插入、跳过已有标记并回读 |
+| `job-agent/tests/test_seed_applications.py` | 测试数据工具新增 | 验证六种状态、不同分数、重复执行跳过、保留已有数据 |
 
 真实连接信息在本地 `.env` 中，不写入阶段文档或代码仓库。
 
@@ -205,5 +208,15 @@ DATABASE_URL=mysql+pymysql://job_agent:你的密码@127.0.0.1:3306/job_agent?cha
 - 不包含网站自动投递、定时提醒、历史报告导出。
 
 ## 10. 后续维护
+
+### 看板测试数据工具
+
+在 `job-agent` 目录运行 `.\.venv\Scripts\python.exe -m scripts.seed_applications`，使用配置的 MySQL，按 `board-demo-v1-01.txt` 至 `board-demo-v1-06.txt` 标记添加虚构数据。包含六种状态、不同城市和分数、完整画像及报告。标题有 `【测试】`，备注有 `[board-demo-v1]`，不调用真实模型。
+
+导入使用一个事务；单次串行重复执行跳过已有固定文件名，不覆盖记录。没有数据库唯一约束，不应并发执行。可在看板手动删除测试记录；重跑会补回被删除的样例。具体岗位和使用方法见根目录 README。
+
+2026-10-21：临时 SQLite 上的导入与重复运行测试通过，Ruff 检查通过。首次 MySQL 连接因用户名与密码所属账号不匹配而返回 `1045`；根据用户确认修正连接账号后，已在真实 MySQL 插入六条记录（本次 ID 为 1～6）并通过完整回读校验。另使用 FastAPI TestClient 连接真实数据库验证列表、六种状态筛选、分数降序和详情读取。本次未验证真实数据库的修改、删除、并发或浏览器交互，也未调用模型。修改本地连接配置后应重启应用。
+
+### 维护要求
 
 修改字段时同步请求响应模型、仓储、数据库升级方式、页面和测试；切换数据库时更新本文件、根目录 README 与 `.env.example`，说明旧数据处理方式。必须区分应用测试通过与真实 MySQL 联调成功。
