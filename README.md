@@ -12,6 +12,7 @@
 | 第二阶段 | 两家模型接入、候选人画像和原文证据 | [候选人画像与模型接入](docs/第二阶段-候选人画像与模型接入.md) |
 | 第三阶段 | 岗位结构化、五维匹配报告和独立模型选择 | [岗位解析与匹配报告](docs/第三阶段-岗位解析与匹配报告.md) |
 | 第四阶段 | 岗位记录保存、投递看板和 MySQL | [求职看板与 MySQL 持久化](docs/第四阶段-求职看板与MySQL持久化.md) |
+| 第五阶段 | 定制简历与求职信预览、DOCX/PDF 导出 | [定制简历与求职信](docs/第五阶段-定制简历与求职信.md) |
 
 每份说明包含成果总览、文件归属与作用、数据流、接口、测试、限制和维护事项。文件归属按阶段功能梳理，共享文件持续扩展，不等同于某一次提交的精确新增清单。
 
@@ -24,7 +25,7 @@
 - 新增阶段时创建独立说明并补充索引；修改已有阶段时更新文档核对日期。
 - 明确区分已实现、提示词约束、待完善和验证范围；不能将模拟测试通过写成真实模型或 MySQL 联调成功。
 - 示例只使用占位密钥和密码，不复制 `.env` 中的真实信息。
-- 本轮文档核对日期：2026-10-20；本轮仅整理文档，没有重新运行应用测试或外部服务联调。
+- 本轮文档核对日期：2026-10-21；第五阶段运行了本地自动化测试，未调用真实模型或 MySQL。
 
 ## 当前进度
 
@@ -76,11 +77,20 @@
 - 数据库已扩展为 `resumes`、`jobs`、`match_reports`、`applications`、`application_events` 五张表
 - 保存新投递时同步建立画像、岗位、报告关联；修改状态时追加事件，保留旧接口快照兼容
 
+第五阶段的定制材料草稿已经完成：
+
+- 在求职看板为已保存岗位生成简历建议稿和求职信草稿，并在页面预览
+- 按岗位技能相关度重排已有技能和项目，只引用已保存的候选人画像事实
+- 匹配报告的修改建议与正式草稿分开展示，避免把建议写成既有经历
+- 两类草稿均可分别下载 DOCX 或 PDF；生成时不调用大模型、不新增数据库表
+- 返回原画像警告及投递前核对提示；完整边界见[第五阶段说明](docs/第五阶段-定制简历与求职信.md)
+
 ### 当前实现边界
 
 - 匹配分由大模型生成；后端检查范围、五个维度和权重总和，但尚未重新计算总分或逐字核验引用证据。
 - 第四阶段详情接口可以读取完整历史报告；前端“查看与编辑”目前仅展开链接和备注，尚未实现完整历史报告回看。
 - 当前持久化使用 SQLAlchemy Core 和 MySQL，没有 Alembic 迁移；数据库自动化测试使用临时 SQLite。
+- 第五阶段只使用数据库里的结构化画像，不含原始简历/JD 全文；生成物仍需人工核对，暂不支持在线编辑或草稿持久化。PDF 导出需要本机可用的中文字体。
 - 各阶段说明中列出了更完整的实现限制与后续完善事项。
 
 ## 本地运行
@@ -98,6 +108,8 @@ cd D:\Agent\job-agent
 - 前端测试页面：`http://127.0.0.1:8000/upload`
 - 接口文档：`http://127.0.0.1:8000/docs`
 - 健康检查：`http://127.0.0.1:8000/health`
+
+看板已保存记录可调用 `GET /api/applications/{id}/draft` 预览草稿；下载接口为 `GET /api/applications/{id}/draft/{resume|letter}.{docx|pdf}`。若 PDF 导出返回 503，可设置 `PDF_CJK_FONT_PATH` 指向中文 TTF/TTC 字体后重启应用；Windows 默认尝试系统自带中文字体。
 
 如果希望激活虚拟环境，可以在当前 PowerShell 窗口临时放行脚本后再激活：
 
@@ -326,7 +338,8 @@ cd D:\Agent\job-agent
 
 ```text
 app/api/resumes.py                 简历上传接口与请求校验
-app/api/applications.py           投递记录增删改查接口
+app/api/applications.py           投递记录增删改查与定制材料接口
+app/models/draft.py              定制材料预览结构
 app/api/jobs.py                    岗位描述解析接口
 app/api/matches.py                 简历与岗位匹配接口
 app/core/config.py                 OpenAI、DeepSeek 和 MySQL 环境配置
@@ -341,16 +354,19 @@ app/prompts/match_analysis.py      匹配评分提示词
 app/services/document_parser.py   PDF、DOCX、TXT 文本解析
 app/services/application_repository.py MySQL 持久化服务
 app/services/application_relations.py 画像复用、报告关联、状态事件
+app/services/draft_composer.py    根据保存事实组织简历和求职信草稿
+app/services/draft_exporter.py    DOCX/PDF 导出及中文 PDF 字体处理
 app/services/llm.py               OpenAI 兼容模型客户端
 app/services/resume_analyzer.py   候选人画像分析服务
 app/services/job_analyzer.py      岗位描述分析服务
 app/services/match_analyzer.py    简历与岗位匹配服务
 app/static/index.html             前端测试页面结构
 app/static/styles.css             前端页面样式与响应式布局
-app/static/app.js                 上传、画像、岗位匹配与求职看板交互
+app/static/app.js                 上传、画像、匹配、看板与定制材料交互
 tests/test_document_parser.py     文档解析单元测试
 tests/test_applications_api.py    求职看板接口与数据库测试
 tests/test_database_relations.py  五表关联、旧数据回填与事件测试
+tests/test_application_drafts.py  第五阶段草稿与四种文件导出测试
 scripts/init_database.py         MySQL 五表增量初始化、回填及检查
 scripts/seed_applications.py     六条虚构测试记录的可重复导入
 tests/test_resume_api.py          简历上传接口测试
@@ -415,4 +431,4 @@ cd D:\Agent\job-agent
 
 ## 下一阶段
 
-下一步可以实现第五阶段：根据岗位匹配报告生成定制版简历建议稿和求职信，并提供 DOCX 或 PDF 导出。生成内容必须以真实简历为依据，不得编造经历。
+下一步可完善第五阶段的草稿在线编辑与版本保存，并在用户确认后支持导出已编辑版本；还可增加原始简历与画像的逐句证据核对。当前没有一键投递或自动发送功能。

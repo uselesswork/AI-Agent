@@ -729,11 +729,20 @@ a {
 .application-card h3 { margin: 0; font-size: 14px; }
 .application-card small { display: block; margin-top: 6px; color: var(--muted); font-size: 8px; line-height: 1.5; }
 .application-score { color: var(--green); font: 500 30px/1 Georgia, serif; }
-.application-controls { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin-top: 18px; }
+.application-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 18px; }
+.application-controls select { flex: 1 1 100%; }
 .application-controls select { margin: 0; }
 .danger-button { color: var(--danger); }
 .application-details { display: grid; gap: 9px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .application-details input, .application-details textarea { margin: 0; }
+.draft-panel { display: grid; gap: 15px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.draft-document, .draft-notices { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+.draft-panel h4 { margin: 0 0 10px; font-size: 12px; }
+.draft-panel h5 { margin: 13px 0 5px; color: var(--green); font-size: 10px; }
+.draft-panel p { margin: 5px 0; color: var(--ink); font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.draft-downloads { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.draft-downloads a { text-decoration: none; }
+.draft-notices { background: #fffdf5; }
 .job-link { color: var(--green); font-size: 9px; font-weight: 700; text-decoration: none; }
 .board-empty { grid-column: 1 / -1; margin: 0; padding: 48px 20px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; font-size: 11px; }
 

@@ -371,8 +371,9 @@ function createApplicationCard(item) {
     catch (error) { showMessage(error.message); }
   });
   const detailsButton = createElement("button", "text-button", "查看与编辑");
+  const draftButton = createElement("button", "text-button", "生成定制材料");
   const deleteButton = createElement("button", "text-button danger-button", "删除");
-  controls.append(statusSelect, detailsButton, deleteButton);
+  controls.append(statusSelect, detailsButton, draftButton, deleteButton);
   card.append(controls);
 
   const details = createElement("div", "application-details is-hidden");
@@ -394,6 +395,48 @@ function createApplicationCard(item) {
   }
   details.append(urlInput, notesInput, saveButton);
   detailsButton.addEventListener("click", () => details.classList.toggle("is-hidden"));
+  const draftPanel = createElement("div", "draft-panel is-hidden");
+  draftButton.addEventListener("click", async () => {
+    draftButton.disabled = true;
+    draftButton.textContent = "正在生成…";
+    try {
+      const response = await fetch(`/api/applications/${item.id}/draft`);
+      const draft = await response.json();
+      if (!response.ok) throw new Error(draft.detail || "生成定制材料失败。");
+      draftPanel.replaceChildren();
+      for (const [kind, documentData, label] of [
+        ["resume", draft.resume, "简历建议稿"],
+        ["letter", draft.cover_letter, "求职信草稿"],
+      ]) {
+        const block = createElement("section", "draft-document");
+        block.append(createElement("h4", "", label));
+        for (const section of documentData.sections) {
+          block.append(createElement("h5", "", section.heading));
+          for (const line of section.lines) block.append(createElement("p", "", line));
+        }
+        const downloads = createElement("div", "draft-downloads");
+        for (const format of ["docx", "pdf"]) {
+          const link = createElement("a", "copy-button", `下载 ${format.toUpperCase()}`);
+          link.href = `/api/applications/${item.id}/draft/${kind}.${format}`;
+          downloads.append(link);
+        }
+        block.append(downloads);
+        draftPanel.append(block);
+      }
+      if (draft.suggestions.length) {
+        const suggestions = createElement("section", "draft-notices");
+        suggestions.append(createElement("h4", "", "修改建议（不会自动写入简历）"));
+        for (const suggestion of draft.suggestions) suggestions.append(createElement("p", "", suggestion));
+        draftPanel.append(suggestions);
+      }
+      const warnings = createElement("section", "draft-notices");
+      warnings.append(createElement("h4", "", "投递前请核对"));
+      for (const warning of draft.warnings) warnings.append(createElement("p", "", warning));
+      draftPanel.append(warnings);
+      draftPanel.classList.remove("is-hidden");
+    } catch (error) { showMessage(error instanceof Error ? error.message : "生成定制材料失败。"); }
+    finally { draftButton.disabled = false; draftButton.textContent = "重新生成定制材料"; }
+  });
   saveButton.addEventListener("click", async () => {
     try {
       await updateApplication(item.id, { job_url: urlInput.value.trim() || null, notes: notesInput.value.trim() || null });
@@ -407,7 +450,7 @@ function createApplicationCard(item) {
       await loadApplications();
     } catch (error) { showMessage(error.message); }
   });
-  card.append(details);
+  card.append(details, draftPanel);
   return card;
 }
 
