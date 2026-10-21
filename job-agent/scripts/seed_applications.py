@@ -8,6 +8,7 @@ from sqlalchemy.engine import Engine
 from app.core.config import get_settings
 from app.models.application import ApplicationCreate, ApplicationDetail
 from app.services.application_repository import applications_table, metadata
+from app.services.application_relations import add_event, attach_snapshot
 
 MARKER = "board-demo-v1"
 DIMENSIONS = [("技能匹配", 35), ("项目经验", 25), ("教育背景", 15),
@@ -93,7 +94,10 @@ def seed(engine: Engine) -> tuple[int, int]:
             now = datetime.now(UTC)
             values.update(created_at=now - timedelta(days=number + 1),
                           updated_at=now - timedelta(hours=number))
-            connection.execute(insert(applications_table).values(**values))
+            values.update(attach_snapshot(connection, values, sample.resume_filename))
+            result = connection.execute(insert(applications_table).values(**values))
+            add_event(connection, result.inserted_primary_key[0], "created", None,
+                      sample.status, now, "虚构测试记录初始化；不代表真实投递历史")
             inserted += 1
     return inserted, len(samples) - inserted
 
@@ -107,8 +111,12 @@ def verify(engine: Engine) -> list[tuple]:
     result = []
     for row in rows:
         job, report = row["job_profile"], row["match_result"]
+        legacy = {key: row[key] for key in (
+            "id", "resume_filename", "candidate_profile", "job_profile", "match_result",
+            "provider", "model", "status", "job_url", "notes", "created_at", "updated_at",
+        )}
         detail = ApplicationDetail.model_validate({
-            **dict(row), "company": job.get("company"), "title": job.get("title"),
+            **legacy, "company": job.get("company"), "title": job.get("title"),
             "location": job.get("location"), "overall_score": report["overall_score"],
             "recommendation": report["recommendation"],
         })

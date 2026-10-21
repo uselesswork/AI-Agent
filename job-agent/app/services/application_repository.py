@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
+from uuid import uuid4
 
-from sqlalchemy import JSON, DateTime, Integer, MetaData, String, Table, Text, create_engine
-from sqlalchemy import Column, delete, insert, select, update
+from sqlalchemy import create_engine, delete, insert, select, update
 from sqlalchemy.engine import Engine, RowMapping
 
+from app.core.database_schema import applications_table, jobs, metadata
+from app.services.application_relations import add_event, attach_snapshot
 from app.models.application import (
     ApplicationCreate,
     ApplicationDetail,
@@ -15,25 +17,6 @@ from app.models.application import (
 
 class ApplicationNotFoundError(LookupError):
     """投递记录不存在。"""
-
-
-metadata = MetaData()
-applications_table = Table(
-    "applications",
-    metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("resume_filename", String(255), nullable=False),
-    Column("candidate_profile", JSON, nullable=False),
-    Column("job_profile", JSON, nullable=False),
-    Column("match_result", JSON, nullable=False),
-    Column("provider", String(20), nullable=False),
-    Column("model", String(255), nullable=False),
-    Column("status", String(20), nullable=False, index=True),
-    Column("job_url", String(2000)),
-    Column("notes", Text),
-    Column("created_at", DateTime(timezone=True), nullable=False),
-    Column("updated_at", DateTime(timezone=True), nullable=False, index=True),
-)
 
 
 class ApplicationRepository:
@@ -57,8 +40,12 @@ class ApplicationRepository:
             "updated_at": now,
         }
         with self.engine.begin() as connection:
+            values.update(attach_snapshot(connection, values, f"save:{uuid4().hex}"))
+            if data.status == "已投递":
+                values["applied_at"] = now
             result = connection.execute(insert(applications_table).values(**values))
             record_id = int(result.inserted_primary_key[0])
+            add_event(connection, record_id, "created", None, data.status, now, "创建投递记录")
         return self.get(record_id)
 
     def list(
@@ -101,15 +88,22 @@ class ApplicationRepository:
         if not changes:
             return self.get(record_id)
         changes["updated_at"] = datetime.now(UTC)
-        statement = (
-            update(applications_table)
-            .where(applications_table.c.id == record_id)
-            .values(**changes)
-        )
         with self.engine.begin() as connection:
-            result = connection.execute(statement)
-        if result.rowcount == 0:
-            raise ApplicationNotFoundError
+            old = connection.execute(select(applications_table).where(
+                applications_table.c.id == record_id).with_for_update()).mappings().first()
+            if old is None:
+                raise ApplicationNotFoundError
+            target = changes.get("status", old["status"])
+            if target == "已投递" and old["applied_at"] is None:
+                changes["applied_at"] = changes["updated_at"]
+            connection.execute(update(applications_table).where(
+                applications_table.c.id == record_id).values(**changes))
+            if target != old["status"]:
+                add_event(connection, record_id, "status_changed", old["status"], target,
+                          changes["updated_at"], "通过看板修改状态")
+            if "job_url" in changes and old["job_id"] is not None:
+                connection.execute(update(jobs).where(jobs.c.id == old["job_id"]).values(
+                    job_url=changes["job_url"], updated_at=changes["updated_at"]))
         return self.get(record_id)
 
     def delete(self, record_id: int) -> None:

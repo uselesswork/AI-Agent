@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.models.candidate import CandidateProfile, StrictModel
 from app.models.job import JobProfile
@@ -26,6 +26,13 @@ class ApplicationUpdate(StrictModel):
     status: ApplicationStatus | None = None
     job_url: str | None = Field(default=None, max_length=2000)
     notes: str | None = Field(default=None, max_length=5000)
+
+    @field_validator("status")
+    @classmethod
+    def status_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("状态不能设为空值；无需修改时请省略该字段。")
+        return value
 
 
 class ApplicationSummary(StrictModel):

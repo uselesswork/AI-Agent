@@ -15,6 +15,8 @@
 
 每份说明包含成果总览、文件归属与作用、数据流、接口、测试、限制和维护事项。文件归属按阶段功能梳理，共享文件持续扩展，不等同于某一次提交的精确新增清单。
 
+数据库专题：[五张表的职责、字段字典、主外键与初始化说明](docs/数据库设计与字段说明.md)。
+
 ### 文档维护约定
 
 - 后续功能、接口、配置、依赖或目录变化时，在同一次工作中更新本 README 和对应阶段说明，统一使用中文。
@@ -71,6 +73,8 @@
 - 支持查看岗位摘要和删除不再需要的记录
 - 保存及管理历史报告不会再次调用大模型
 - 提供完整的投递记录增删改查接口
+- 数据库已扩展为 `resumes`、`jobs`、`match_reports`、`applications`、`application_events` 五张表
+- 保存新投递时同步建立画像、岗位、报告关联；修改状态时追加事件，保留旧接口快照兼容
 
 ### 当前实现边界
 
@@ -278,7 +282,28 @@ FLUSH PRIVILEGES;
 DATABASE_URL=mysql+pymysql://job_agent:你的密码@127.0.0.1:3306/job_agent?charset=utf8mb4
 ```
 
-如果密码包含 `@`、`:`、`/`、`#` 等特殊字符，需要先进行 URL 编码。首次访问投递管理接口时，仓储初始化会尝试创建尚不存在的 `applications` 表；数据库本身和账号需要提前创建。当前没有自动升级已有表结构或迁移旧 SQLite 数据的脚本。生产环境应使用权限受限的独立账号，不建议直接使用 `root`。
+如果密码包含 `@`、`:`、`/`、`#` 等特殊字符，需要先进行 URL 编码。数据库和账号需要提前创建。当前支持 MySQL 旧单表增量升级为五表，尚无旧 SQLite 到 MySQL 的跨库迁移脚本。生产环境应使用权限受限的独立账号，不建议直接使用 `root`。
+
+### 五表初始化与旧数据回填
+
+旧 MySQL 库升级或新库初始化时，在暂停应用写入后执行：
+
+```powershell
+cd D:\Agent\job-agent
+.\.venv\Scripts\python.exe -X utf8 -m scripts.init_database
+```
+
+该命令创建缺失表，给旧投递表添加关联列、外键和索引，回填已有记录，并补齐测试数据。现有 ID、状态、备注和报告快照保留；不会伪造缺失原文或历史投递时间。可以串行重复执行，已回填和已有测试记录会跳过。MySQL 建表/加列会隐式提交，不能视为可整体回滚的事务。完成后重启后端。
+
+| 表 | 职责 |
+| --- | --- |
+| `resumes` | 候选人画像，按内容复用 |
+| `jobs` | 岗位信息与链接 |
+| `match_reports` | 简历与岗位之间的评分报告 |
+| `applications` | 当前投递状态、备注与所采用报告，兼容旧快照 |
+| `application_events` | 创建、状态变化、迁移时状态快照 |
+
+详细字段类型、是否可空、字段用途、关系与删除规则见[数据库设计与字段说明](docs/数据库设计与字段说明.md)。已有结构和兼容写入，不代表独立简历管理、报告历史或事件时间线页面已实现。
 
 ## 运行测试
 
@@ -305,6 +330,7 @@ app/api/applications.py           投递记录增删改查接口
 app/api/jobs.py                    岗位描述解析接口
 app/api/matches.py                 简历与岗位匹配接口
 app/core/config.py                 OpenAI、DeepSeek 和 MySQL 环境配置
+app/core/database_schema.py        五张表、外键与索引定义
 app/models/candidate.py            候选人画像数据模型
 app/models/application.py         投递记录数据模型
 app/models/job.py                  岗位画像数据模型
@@ -314,6 +340,7 @@ app/prompts/job_analysis.py        岗位结构化提示词
 app/prompts/match_analysis.py      匹配评分提示词
 app/services/document_parser.py   PDF、DOCX、TXT 文本解析
 app/services/application_repository.py MySQL 持久化服务
+app/services/application_relations.py 画像复用、报告关联、状态事件
 app/services/llm.py               OpenAI 兼容模型客户端
 app/services/resume_analyzer.py   候选人画像分析服务
 app/services/job_analyzer.py      岗位描述分析服务
@@ -323,6 +350,9 @@ app/static/styles.css             前端页面样式与响应式布局
 app/static/app.js                 上传、画像、岗位匹配与求职看板交互
 tests/test_document_parser.py     文档解析单元测试
 tests/test_applications_api.py    求职看板接口与数据库测试
+tests/test_database_relations.py  五表关联、旧数据回填与事件测试
+scripts/init_database.py         MySQL 五表增量初始化、回填及检查
+scripts/seed_applications.py     六条虚构测试记录的可重复导入
 tests/test_resume_api.py          简历上传接口测试
 tests/test_resume_analysis_api.py 候选人画像接口测试
 tests/test_job_match_api.py       岗位解析与匹配接口测试
@@ -355,6 +385,8 @@ D:\Agent\test\测试岗位描述.txt
 
 新增 `job-agent/scripts/seed_applications.py`，读取项目 `.env` 的 MySQL 连接信息，向 `applications` 添加六条虚构记录，包含完整候选人画像、岗位画像和匹配报告。
 
+五表版本的测试导入会同时写入关联表和创建事件；旧库应先运行 `scripts.init_database`。2026-10-21 本次已保留原有六条测试投递并回填：`resumes` 1 条、`jobs` 6 条、`match_reports` 6 条、`applications` 6 条、`application_events` 6 条。六条投递共享相同候选人画像，不再为每个岗位新增相同画像。
+
 | 虚构岗位 | 初始状态 | 测试匹配分 |
 | --- | --- | --- |
 | Python 后端实习生 | 待投递 | 86 |
@@ -378,6 +410,8 @@ cd D:\Agent\job-agent
 2026-10-21 验证记录：临时 SQLite 测试验证了插入、重复跳过和已有数据保留，Ruff 检查通过。首次真实 MySQL 连接出现 `1045`，原因是连接用户名与所填密码所属账号不匹配。确认后修正本地连接账号，已向真实 MySQL 插入六条测试记录（本次 ID 为 1～6），回读及完整数据结构校验通过；使用 FastAPI TestClient 连接真实数据库验证了列表、六种状态筛选、匹配分降序和记录详情。此次未调用大模型、未进行浏览器交互测试。
 
 连接字符串中 `://` 后、冒号前是 MySQL 登录用户名，端口后 `/` 后是数据库名，两者可以不同。通过某个账号创建数据库，并不意味着自动创建同名数据库账号；请为连接用户名填写该账号对应的密码。修改 `.env` 后需重启正在运行的应用，使缓存配置生效。
+
+五表升级验证：真实 MySQL 建表、旧记录回填、关系完整性和完整报告回读通过；再次执行初始化没有新增或重复回填。实测五张表共六个外键，现有看板接口的列表、分数排序和详情兼容性通过。应用回归测试 37 项通过，追加的旧快照保留测试及关联重点测试共 6 项通过（临时 SQLite）；Ruff 与文档链接检查通过。此次没有调用大模型，也未进行浏览器操作测试。
 
 ## 下一阶段
 
