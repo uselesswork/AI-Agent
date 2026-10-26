@@ -50,14 +50,23 @@ const retainSourceText = document.querySelector("#retain-source-text");
 const saveApplicationButton = document.querySelector("#save-application-button");
 const applicationFilter = document.querySelector("#application-filter");
 const applicationSort = document.querySelector("#application-sort");
+const applicationQueryInput = document.querySelector("#application-query");
+const applicationSearchButton = document.querySelector("#application-search-button");
 const applicationCount = document.querySelector("#application-count");
 const applicationGrid = document.querySelector("#application-grid");
 const refreshApplications = document.querySelector("#refresh-applications");
+const applicationPrev = document.querySelector("#application-prev");
+const applicationNext = document.querySelector("#application-next");
+const applicationPageLabel = document.querySelector("#application-page-label");
 
 let currentFile = null;
 let currentCandidateProfile = null;
 let currentJobProfile = null;
 let currentMatchData = null;
+let applicationPage = 1;
+let applicationQuery = "";
+let applicationRequestId = 0;
+const APPLICATION_PAGE_SIZE = 10;
 
 function extensionOf(filename) {
   return filename.split(".").pop()?.toLowerCase() ?? "";
@@ -331,7 +340,8 @@ function renderMatch(data) {
 const APPLICATION_STATUSES = ["待投递", "已投递", "笔试", "面试", "Offer", "已拒绝"];
 
 function formatDate(value) {
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  const utcValue = /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`;
+  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(utcValue));
 }
 
 async function updateApplication(id, changes) {
@@ -386,6 +396,11 @@ function createApplicationCard(item) {
   notesInput.rows = 3;
   notesInput.placeholder = "投递备注";
   notesInput.value = item.notes || "";
+  const appliedLabel = createElement("label", "application-date-label", "实际投递日期（可留空）");
+  const appliedInput = createElement("input");
+  appliedInput.type = "date";
+  appliedInput.value = item.applied_at || "";
+  appliedLabel.append(appliedInput);
   const saveButton = createElement("button", "copy-button", "保存修改");
   if (item.job_url) {
     const link = createElement("a", "job-link", "打开岗位链接 ↗");
@@ -394,8 +409,45 @@ function createApplicationCard(item) {
     link.rel = "noopener noreferrer";
     details.append(link);
   }
-  details.append(urlInput, notesInput, saveButton);
-  detailsButton.addEventListener("click", () => details.classList.toggle("is-hidden"));
+  const historyHost = createElement("div", "application-history");
+  details.append(urlInput, notesInput, appliedLabel, saveButton, historyHost);
+  detailsButton.addEventListener("click", async () => {
+    details.classList.toggle("is-hidden");
+    if (details.classList.contains("is-hidden")) return;
+    historyHost.replaceChildren(createElement("p", "", "正在读取历史报告与事件…"));
+    try {
+      const [detailResponse, eventsResponse] = await Promise.all([
+        fetch(`/api/applications/${item.id}`),
+        fetch(`/api/applications/${item.id}/events`),
+      ]);
+      const [detail, events] = await Promise.all([detailResponse.json(), eventsResponse.json()]);
+      if (!detailResponse.ok) throw new Error(apiErrorMessage(detail, "读取历史报告失败。"));
+      if (!eventsResponse.ok) throw new Error(apiErrorMessage(events, "读取状态事件失败。"));
+      historyHost.replaceChildren(createElement("h4", "", "保存时的完整分析"));
+      historyHost.append(createElement("p", "", `简历文件：${detail.resume_filename} · ${detail.provider} / ${detail.model}`));
+      for (const [label, value] of [
+        ["候选人画像", detail.candidate_profile],
+        ["岗位画像", detail.job_profile],
+        ["匹配报告", detail.match_result],
+      ]) {
+        const block = createElement("details", "history-block");
+        block.append(createElement("summary", "", label),
+          createElement("pre", "history-json", JSON.stringify(value, null, 2)));
+        historyHost.append(block);
+      }
+      historyHost.append(createElement("h4", "", "状态事件时间线"));
+      if (!events.length) historyHost.append(createElement("p", "", "暂无事件记录。"));
+      for (const event of events) {
+        const title = event.event_type === "created" ? "创建记录"
+          : event.event_type === "status_changed" ? `${event.from_status} → ${event.to_status}`
+          : event.event_type === "applied_at_changed" ? "修改投递日期" : event.event_type;
+        historyHost.append(createElement("p", "history-event",
+          `${formatDate(event.occurred_at)} · ${title}${event.note ? ` · ${event.note}` : ""}`));
+      }
+    } catch (error) {
+      historyHost.replaceChildren(createElement("p", "", error.message || "读取详情失败。"));
+    }
+  });
   const draftPanel = createElement("div", "draft-panel is-hidden");
   draftButton.addEventListener("click", async () => {
     if (!draftPanel.classList.contains("is-hidden") &&
@@ -616,7 +668,12 @@ function createApplicationCard(item) {
   });
   saveButton.addEventListener("click", async () => {
     try {
-      await updateApplication(item.id, { job_url: urlInput.value.trim() || null, notes: notesInput.value.trim() || null });
+      await updateApplication(item.id, {
+        job_url: urlInput.value.trim() || null,
+        notes: notesInput.value.trim() || null,
+        ...(appliedInput.value !== (item.applied_at || "")
+          ? { applied_at: appliedInput.value || null } : {}),
+      });
     } catch (error) { showMessage(error.message); }
   });
   deleteButton.addEventListener("click", async () => {
@@ -683,21 +740,38 @@ function buildDraftEditor(documentData, label) {
 }
 
 async function loadApplications() {
-  const params = new URLSearchParams({ sort: applicationSort.value });
+  const requestId = ++applicationRequestId;
+  const params = new URLSearchParams({
+    sort: applicationSort.value,
+    page: String(applicationPage),
+    page_size: String(APPLICATION_PAGE_SIZE),
+  });
   if (applicationFilter.value) params.set("status", applicationFilter.value);
+  if (applicationQuery) params.set("q", applicationQuery);
   applicationCount.textContent = "正在读取投递记录…";
   try {
-    const response = await fetch(`/api/applications?${params}`);
+    const response = await fetch(`/api/applications/search?${params}`);
     const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "读取投递记录失败。");
+    if (requestId !== applicationRequestId) return;
+    if (!response.ok) throw new Error(apiErrorMessage(data, "读取投递记录失败。"));
+    const totalPages = Math.max(1, Math.ceil(data.total / APPLICATION_PAGE_SIZE));
+    if (applicationPage > totalPages) {
+      applicationPage = totalPages;
+      await loadApplications();
+      return;
+    }
     applicationGrid.replaceChildren();
-    applicationCount.textContent = `共 ${data.length} 个岗位`;
-    if (!data.length) {
+    applicationCount.textContent = `共 ${data.total} 个岗位；本页 ${data.items.length} 个`;
+    applicationPageLabel.textContent = `第 ${applicationPage} / ${totalPages} 页`;
+    applicationPrev.disabled = applicationPage <= 1;
+    applicationNext.disabled = applicationPage >= totalPages;
+    if (!data.items.length) {
       applicationGrid.append(createElement("p", "board-empty", "暂无符合条件的投递记录。生成匹配报告后，可以把岗位保存到这里。"));
       return;
     }
-    for (const item of data) applicationGrid.append(createApplicationCard(item));
+    for (const item of data.items) applicationGrid.append(createApplicationCard(item));
   } catch (error) {
+    if (requestId !== applicationRequestId) return;
     applicationCount.textContent = "投递记录读取失败";
     showMessage(error instanceof Error ? error.message : "读取投递记录失败。");
   }
@@ -922,6 +996,11 @@ saveApplicationButton.addEventListener("click", async () => {
     if (!response.ok) throw new Error(apiErrorMessage(data, "保存投递记录失败。"));
     saveApplicationButton.querySelector("span:first-child").textContent = "保存成功";
     retainSourceText.checked = false;
+    applicationPage = 1;
+    applicationQuery = "";
+    applicationQueryInput.value = "";
+    applicationFilter.value = "";
+    applicationSort.value = "updated_desc";
     await loadApplications();
     document.querySelector("#applications-panel").scrollIntoView({ behavior: "smooth" });
   } catch (error) {
@@ -934,8 +1013,18 @@ saveApplicationButton.addEventListener("click", async () => {
   }
 });
 
-applicationFilter.addEventListener("change", loadApplications);
-applicationSort.addEventListener("change", loadApplications);
+applicationFilter.addEventListener("change", () => { applicationPage = 1; loadApplications(); });
+applicationSort.addEventListener("change", () => { applicationPage = 1; loadApplications(); });
+applicationSearchButton.addEventListener("click", () => {
+  applicationQuery = applicationQueryInput.value.trim();
+  applicationPage = 1;
+  loadApplications();
+});
+applicationQueryInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") applicationSearchButton.click();
+});
+applicationPrev.addEventListener("click", () => { if (applicationPage > 1) { applicationPage--; loadApplications(); } });
+applicationNext.addEventListener("click", () => { applicationPage++; loadApplications(); });
 refreshApplications.addEventListener("click", loadApplications);
 loadApplications();
 

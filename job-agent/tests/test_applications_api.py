@@ -1,8 +1,10 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
 from app.api import applications
+from app.core.database_schema import applications_table
 from app.main import app
 from app.services.application_repository import ApplicationRepository
 
@@ -93,3 +95,79 @@ def test_application_rejects_invalid_status(monkeypatch, tmp_path: Path) -> None
     payload["status"] = "随便看看"
     response = client.post("/api/applications", json=payload)
     assert response.status_code == 422
+
+
+def test_search_filter_sort_and_pagination(monkeypatch, tmp_path: Path) -> None:
+    use_temporary_repository(monkeypatch, tmp_path)
+    record_ids = []
+    for index, (company, score, status) in enumerate([
+        ("星云科技", 82, "待投递"), ("云海实验室", 91, "已投递"),
+        ("星云数据", 77, "待投递"),
+    ]):
+        payload = application_payload()
+        payload["job_profile"]["company"] = company
+        payload["job_profile"]["title"] = f"岗位 {index}"
+        payload["match_result"]["overall_score"] = score
+        payload["status"] = status
+        created = client.post("/api/applications", json=payload)
+        assert created.status_code == 201
+        record_ids.append(created.json()["id"])
+
+    # 旧快照即使没有岗位和报告关联，也应能被搜索与评分排序查到。
+    with applications.get_repository().engine.begin() as connection:
+        connection.execute(update(applications_table).where(
+            applications_table.c.id == record_ids[2],
+        ).values(job_id=None, match_report_id=None))
+
+    first = client.get("/api/applications/search", params={
+        "q": "星云", "status": "待投递", "sort": "score_desc", "page_size": 1,
+    })
+    assert first.status_code == 200
+    assert first.json()["total"] == 2
+    assert first.json()["items"][0]["company"] == "星云科技"
+    second = client.get("/api/applications/search", params={
+        "q": "星云", "status": "待投递", "sort": "score_desc", "page_size": 1, "page": 2,
+    })
+    assert second.json()["items"][0]["company"] == "星云数据"
+    assert client.get("/api/applications/search", params={"q": "不存在"}).json()["total"] == 0
+    assert client.get("/api/applications/search", params={"page": 0}).status_code == 422
+    assert client.get("/api/applications/search", params={"page_size": 101}).status_code == 422
+
+
+def test_history_events_and_manual_applied_date(monkeypatch, tmp_path: Path) -> None:
+    use_temporary_repository(monkeypatch, tmp_path)
+    created = client.post("/api/applications", json=application_payload()).json()
+    record_id = created["id"]
+    assert created["applied_at"] is None
+    changed = client.patch(f"/api/applications/{record_id}", json={
+        "status": "已投递", "applied_at": "2026-10-20",
+    })
+    assert changed.status_code == 200
+    assert changed.json()["applied_at"] == "2026-10-20"
+    events = client.get(f"/api/applications/{record_id}/events")
+    assert events.status_code == 200
+    assert [item["event_type"] for item in events.json()] == [
+        "applied_at_changed", "status_changed", "created",
+    ]
+    assert client.get(f"/api/applications/{record_id}").json()["match_result"]["overall_score"] == 82
+
+    cleared = client.patch(f"/api/applications/{record_id}", json={"applied_at": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["applied_at"] is None
+    assert client.get(f"/api/applications/{record_id}/events").json()[0]["event_type"] == "applied_at_changed"
+    assert client.patch(f"/api/applications/{record_id}", json={
+        "notes": "日期待核对",
+    }).json()["applied_at"] is None
+    assert client.get("/api/applications/999/events").status_code == 404
+
+
+def test_status_change_auto_dates_only_when_missing(monkeypatch, tmp_path: Path) -> None:
+    use_temporary_repository(monkeypatch, tmp_path)
+    record_id = client.post("/api/applications", json=application_payload()).json()["id"]
+    changed = client.patch(f"/api/applications/{record_id}", json={"status": "已投递"})
+    assert changed.status_code == 200
+    assert changed.json()["applied_at"] is not None
+    custom = client.patch(f"/api/applications/{record_id}", json={"applied_at": "2026-10-20"})
+    assert custom.json()["applied_at"] == "2026-10-20"
+    later = client.patch(f"/api/applications/{record_id}", json={"notes": "已补日期"})
+    assert later.json()["applied_at"] == "2026-10-20"

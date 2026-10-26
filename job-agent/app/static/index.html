@@ -253,6 +253,10 @@
             <button class="copy-button" id="refresh-applications" type="button">刷新记录</button>
           </div>
           <div class="board-toolbar">
+            <label>搜索岗位、公司、地点或备注
+              <input id="application-query" type="search" maxlength="100" placeholder="输入关键词" />
+            </label>
+            <button class="copy-button" id="application-search-button" type="button">搜索</button>
             <label>投递状态
               <select id="application-filter">
                 <option value="">全部状态</option><option>待投递</option><option>已投递</option>
@@ -269,6 +273,11 @@
           </div>
           <div class="application-count" id="application-count">正在读取投递记录…</div>
           <div class="application-grid" id="application-grid"></div>
+          <div class="board-pagination">
+            <button class="copy-button" id="application-prev" type="button">上一页</button>
+            <span id="application-page-label">第 1 页</span>
+            <button class="copy-button" id="application-next" type="button">下一页</button>
+          </div>
         </section>
 
         <section class="notes" aria-labelledby="notes-title">
@@ -297,7 +306,7 @@
       </main>
 
       <footer>
-          <span>AI 求职助手 · 第一至第七阶段测试页面</span>
+          <span>AI 求职助手 · 第一至第八阶段测试页面</span>
         <a href="/docs">打开接口文档</a>
       </footer>
     </div>

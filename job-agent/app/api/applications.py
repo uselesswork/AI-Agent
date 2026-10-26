@@ -7,6 +7,8 @@ from app.core.config import get_settings
 from app.models.application import (
     ApplicationCreate,
     ApplicationDetail,
+    ApplicationEvent,
+    ApplicationPage,
     ApplicationStatus,
     ApplicationSummary,
     ApplicationUpdate,
@@ -67,10 +69,29 @@ def list_applications(
     return get_repository().list(application_status, sort)
 
 
+@router.get("/search", response_model=ApplicationPage)
+def search_applications(
+    q: str = Query(default="", max_length=100),
+    application_status: ApplicationStatus | None = Query(default=None, alias="status"),
+    sort: Literal["updated_desc", "score_desc", "score_asc"] = "updated_desc",
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+) -> ApplicationPage:
+    return get_repository().search(q.strip(), application_status, sort, page, page_size)
+
+
 @router.get("/{record_id}", response_model=ApplicationDetail)
 def get_application(record_id: int) -> ApplicationDetail:
     try:
         return get_repository().get(record_id)
+    except ApplicationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="投递记录不存在。") from exc
+
+
+@router.get("/{record_id}/events", response_model=list[ApplicationEvent])
+def list_application_events(record_id: int) -> list[ApplicationEvent]:
+    try:
+        return get_repository().list_events(record_id)
     except ApplicationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="投递记录不存在。") from exc
 

@@ -1,14 +1,20 @@
-from datetime import UTC, datetime
+from __future__ import annotations
+
+from datetime import UTC, datetime, time
 from uuid import uuid4
 
-from sqlalchemy import create_engine, delete, insert, select, update
+from sqlalchemy import create_engine, delete, func, insert, or_, select, update
 from sqlalchemy.engine import Engine, RowMapping
 
-from app.core.database_schema import application_sources, applications_table, jobs, metadata
+from app.core.database_schema import (
+    application_events, application_sources, applications_table, jobs, match_reports, metadata,
+)
 from app.services.application_relations import add_event, attach_snapshot
 from app.models.application import (
     ApplicationCreate,
     ApplicationDetail,
+    ApplicationEvent,
+    ApplicationPage,
     ApplicationStatus,
     ApplicationSummary,
     ApplicationUpdate,
@@ -96,6 +102,62 @@ class ApplicationRepository:
             return sorted(summaries, key=lambda item: item.overall_score)
         return sorted(summaries, key=lambda item: item.updated_at, reverse=True)
 
+    def search(
+        self, q: str = "", status: ApplicationStatus | None = None,
+        sort: str = "updated_desc", page: int = 1, page_size: int = 10,
+    ) -> ApplicationPage:
+        """在数据库中筛选、排序和分页；旧快照缺少关联时回退到 JSON 字段。"""
+        source = applications_table.outerjoin(jobs, applications_table.c.job_id == jobs.c.id)
+        source = source.outerjoin(
+            match_reports, applications_table.c.match_report_id == match_reports.c.id,
+        )
+        statement = select(applications_table).select_from(source)
+        if status:
+            statement = statement.where(applications_table.c.status == status)
+        if q:
+            needle = q.lower()
+            searchable = [
+                func.coalesce(jobs.c.title, applications_table.c.job_profile["title"].as_string()),
+                func.coalesce(jobs.c.company, applications_table.c.job_profile["company"].as_string()),
+                func.coalesce(jobs.c.location, applications_table.c.job_profile["location"].as_string()),
+                applications_table.c.notes,
+            ]
+            statement = statement.where(or_(*(
+                func.lower(column).contains(needle, autoescape=True) for column in searchable
+            )))
+        score = func.coalesce(
+            match_reports.c.overall_score,
+            applications_table.c.match_result["overall_score"].as_integer(),
+        )
+        if sort == "score_desc":
+            statement = statement.order_by(score.desc(), applications_table.c.id.desc())
+        elif sort == "score_asc":
+            statement = statement.order_by(score.asc(), applications_table.c.id.desc())
+        else:
+            statement = statement.order_by(
+                applications_table.c.updated_at.desc(), applications_table.c.id.desc(),
+            )
+        count_statement = select(func.count()).select_from(statement.order_by(None).subquery())
+        with self.engine.connect() as connection:
+            total = connection.scalar(count_statement) or 0
+            rows = connection.execute(
+                statement.limit(page_size).offset((page - 1) * page_size)
+            ).mappings().all()
+        return ApplicationPage(items=[self._summary(row) for row in rows], total=total,
+                               page=page, page_size=page_size)
+
+    def list_events(self, record_id: int) -> list[ApplicationEvent]:
+        with self.engine.connect() as connection:
+            exists = connection.scalar(select(applications_table.c.id).where(
+                applications_table.c.id == record_id))
+            if exists is None:
+                raise ApplicationNotFoundError
+            rows = connection.execute(select(application_events).where(
+                application_events.c.application_id == record_id,
+            ).order_by(application_events.c.occurred_at.desc(),
+                       application_events.c.id.desc())).mappings().all()
+        return [ApplicationEvent.model_validate(row) for row in rows]
+
     def get(self, record_id: int) -> ApplicationDetail:
         statement = select(applications_table).where(applications_table.c.id == record_id)
         with self.engine.connect() as connection:
@@ -118,6 +180,8 @@ class ApplicationRepository:
         changes = data.model_dump(exclude_unset=True)
         if not changes:
             return self.get(record_id)
+        if "applied_at" in changes and changes["applied_at"] is not None:
+            changes["applied_at"] = datetime.combine(changes["applied_at"], time.min)
         changes["updated_at"] = datetime.now(UTC)
         with self.engine.begin() as connection:
             old = connection.execute(select(applications_table).where(
@@ -125,13 +189,19 @@ class ApplicationRepository:
             if old is None:
                 raise ApplicationNotFoundError
             target = changes.get("status", old["status"])
-            if target == "已投递" and old["applied_at"] is None:
+            if ("applied_at" not in changes and target == "已投递"
+                    and old["status"] != "已投递" and old["applied_at"] is None):
                 changes["applied_at"] = changes["updated_at"]
             connection.execute(update(applications_table).where(
                 applications_table.c.id == record_id).values(**changes))
             if target != old["status"]:
                 add_event(connection, record_id, "status_changed", old["status"], target,
                           changes["updated_at"], "通过看板修改状态")
+            old_date = old["applied_at"].date() if old["applied_at"] else None
+            new_date = changes["applied_at"].date() if changes.get("applied_at") else None
+            if "applied_at" in data.model_fields_set and new_date != old_date:
+                add_event(connection, record_id, "applied_at_changed", old["status"], target,
+                          changes["updated_at"], "更新投递日期")
             if "job_url" in changes and old["job_id"] is not None:
                 connection.execute(update(jobs).where(jobs.c.id == old["job_id"]).values(
                     job_url=changes["job_url"], updated_at=changes["updated_at"]))
@@ -163,4 +233,5 @@ class ApplicationRepository:
             "notes": row["notes"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
+            "applied_at": row["applied_at"].date() if row["applied_at"] else None,
         }

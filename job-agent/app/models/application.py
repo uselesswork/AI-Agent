@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -40,6 +40,7 @@ class ApplicationUpdate(StrictModel):
     status: ApplicationStatus | None = None
     job_url: str | None = Field(default=None, max_length=2000)
     notes: str | None = Field(default=None, max_length=5000)
+    applied_at: date | None = None
 
     @field_validator("status")
     @classmethod
@@ -61,6 +62,7 @@ class ApplicationSummary(StrictModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+    applied_at: date | None = None
 
 
 class ApplicationDetail(ApplicationSummary):
@@ -70,3 +72,20 @@ class ApplicationDetail(ApplicationSummary):
     match_result: MatchResult
     provider: Literal["openai", "deepseek"]
     model: str
+
+
+class ApplicationPage(StrictModel):
+    items: list[ApplicationSummary]
+    total: int
+    page: int
+    page_size: int
+
+
+class ApplicationEvent(StrictModel):
+    id: int
+    application_id: int
+    event_type: str
+    from_status: ApplicationStatus | None
+    to_status: ApplicationStatus
+    note: str | None
+    occurred_at: datetime
