@@ -4,7 +4,7 @@ from uuid import uuid4
 from sqlalchemy import create_engine, delete, insert, select, update
 from sqlalchemy.engine import Engine, RowMapping
 
-from app.core.database_schema import applications_table, jobs, metadata
+from app.core.database_schema import application_sources, applications_table, jobs, metadata
 from app.services.application_relations import add_event, attach_snapshot
 from app.models.application import (
     ApplicationCreate,
@@ -45,8 +45,39 @@ class ApplicationRepository:
                 values["applied_at"] = now
             result = connection.execute(insert(applications_table).values(**values))
             record_id = int(result.inserted_primary_key[0])
+            if data.retain_source_text:
+                connection.execute(insert(application_sources).values(
+                    application_id=record_id, resume_text=data.resume_text,
+                    job_description=data.job_description, stored_at=now,
+                ))
             add_event(connection, record_id, "created", None, data.status, now, "创建投递记录")
         return self.get(record_id)
+
+    def get_source_status(self, record_id: int) -> bool:
+        with self.engine.connect() as connection:
+            exists = connection.scalar(select(applications_table.c.id).where(
+                applications_table.c.id == record_id))
+            if exists is None:
+                raise ApplicationNotFoundError
+            source = connection.scalar(select(application_sources.c.application_id).where(
+                application_sources.c.application_id == record_id))
+        return source is not None
+
+    def get_sources(self, record_id: int) -> tuple[str, str] | None:
+        with self.engine.connect() as connection:
+            row = connection.execute(select(application_sources.c.resume_text,
+                                            application_sources.c.job_description).where(
+                application_sources.c.application_id == record_id)).first()
+        return (row.resume_text, row.job_description) if row else None
+
+    def delete_sources(self, record_id: int) -> None:
+        with self.engine.begin() as connection:
+            exists = connection.scalar(select(applications_table.c.id).where(
+                applications_table.c.id == record_id))
+            if exists is None:
+                raise ApplicationNotFoundError
+            connection.execute(delete(application_sources).where(
+                application_sources.c.application_id == record_id))
 
     def list(
         self,

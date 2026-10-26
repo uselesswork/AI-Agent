@@ -46,6 +46,7 @@ const matchAssessments = document.querySelector("#match-assessments");
 const saveJobUrl = document.querySelector("#save-job-url");
 const saveStatus = document.querySelector("#save-status");
 const saveNotes = document.querySelector("#save-notes");
+const retainSourceText = document.querySelector("#retain-source-text");
 const saveApplicationButton = document.querySelector("#save-application-button");
 const applicationFilter = document.querySelector("#application-filter");
 const applicationSort = document.querySelector("#application-sort");
@@ -397,6 +398,8 @@ function createApplicationCard(item) {
   detailsButton.addEventListener("click", () => details.classList.toggle("is-hidden"));
   const draftPanel = createElement("div", "draft-panel is-hidden");
   draftButton.addEventListener("click", async () => {
+    if (!draftPanel.classList.contains("is-hidden") &&
+        !window.confirm("重新生成会丢弃尚未保存的编辑，确定继续吗？")) return;
     draftButton.disabled = true;
     draftButton.textContent = "正在生成…";
     try {
@@ -415,6 +418,7 @@ function createApplicationCard(item) {
           for (const line of section.lines) block.append(createElement("p", "", line));
         }
         const downloads = createElement("div", "draft-downloads");
+        downloads.append(createElement("small", "", "自动建议稿下载（未人工核对）"));
         for (const format of ["docx", "pdf"]) {
           const link = createElement("a", "copy-button", `下载 ${format.toUpperCase()}`);
           link.href = `/api/applications/${item.id}/draft/${kind}.${format}`;
@@ -433,7 +437,180 @@ function createApplicationCard(item) {
       warnings.append(createElement("h4", "", "投递前请核对"));
       for (const warning of draft.warnings) warnings.append(createElement("p", "", warning));
       draftPanel.append(warnings);
+
+      const workspace = createElement("section", "draft-workspace");
+      workspace.append(
+        createElement("h4", "", "人工编辑与版本保存"),
+        createElement("p", "", "编辑后保存为新版本；请对照原始简历和岗位要求逐项核对，再确认并下载该版本。确认只记录人工操作，不代表系统已核验事实。"),
+      );
+      const editorHost = createElement("div", "draft-editors");
+      let resumeEditor;
+      let letterEditor;
+      function setEditors(resume, letter) {
+        resumeEditor = buildDraftEditor(resume, "简历建议稿");
+        letterEditor = buildDraftEditor(letter, "求职信草稿");
+        editorHost.replaceChildren(resumeEditor.element, letterEditor.element);
+      }
+      setEditors(draft.resume, draft.cover_letter);
+      const saveVersionButton = createElement("button", "copy-button", "保存为新版本");
+      const editorStatus = createElement("p", "draft-status", "未保存的修改不会影响已有版本。");
+      const versionList = createElement("div", "draft-version-list");
+      const evidenceOutput = createElement("div", "draft-evidence-output");
+      const compareControls = createElement("div", "draft-compare-controls");
+      const diffOutput = createElement("div", "draft-diff-output");
+      const sourceResponse = await fetch(`/api/applications/${item.id}/sources/status`);
+      const sourceStatus = await sourceResponse.json();
+      if (!sourceResponse.ok) throw new Error(apiErrorMessage(sourceStatus, "读取原文留存状态失败。"));
+      const sourceNotice = createElement("p", "", sourceStatus.retained
+        ? "此投递已授权留存原文，可对保存的版本做字面证据检查。"
+        : "此投递未留存原文，历史版本仍可编辑和比较，但不能做原文字面检查。");
+      workspace.append(sourceNotice);
+      if (sourceStatus.retained) {
+        const revokeButton = createElement("button", "text-button danger-button", "删除留存原文");
+        revokeButton.addEventListener("click", async () => {
+          if (!window.confirm("确定删除这条投递留存的简历和岗位原文吗？此操作不可恢复，版本材料仍会保留。")) return;
+          try {
+            const response = await fetch(`/api/applications/${item.id}/sources`, { method: "DELETE" });
+            if (!response.ok) throw new Error("删除留存原文失败。");
+            sourceStatus.retained = false;
+            sourceNotice.textContent = "留存原文已删除；历史版本仍可编辑和比较，但不能再做字面检查。";
+            revokeButton.remove();
+            evidenceOutput.replaceChildren();
+            await loadVersionList();
+          } catch (error) { showMessage(error.message); }
+        });
+        workspace.append(revokeButton);
+      }
+
+      async function loadVersionList() {
+        const response = await fetch(`/api/applications/${item.id}/draft-versions`);
+        const versions = await response.json();
+        if (!response.ok) throw new Error(apiErrorMessage(versions, "读取草稿版本失败。"));
+        versionList.replaceChildren();
+        if (!versions.length) {
+          versionList.append(createElement("p", "", "尚无已保存版本。"));
+          return;
+        }
+        for (const version of versions) {
+          const row = createElement("div", "draft-version-row");
+          row.append(createElement("strong", "", `版本 ${version.version} · ${version.reviewed_at ? "已核对" : "待核对"}`));
+          row.append(createElement("small", "", formatDate(version.created_at)));
+          const loadButton = createElement("button", "text-button", "载入编辑");
+          loadButton.addEventListener("click", async () => {
+            if (!window.confirm("载入历史版本会覆盖编辑框中未保存的修改，确定继续吗？")) return;
+            try {
+              const detailResponse = await fetch(`/api/applications/${item.id}/draft-versions/${version.version}`);
+              const detail = await detailResponse.json();
+              if (!detailResponse.ok) throw new Error(apiErrorMessage(detail, "读取版本失败。"));
+              setEditors(detail.resume, detail.cover_letter);
+              editorStatus.textContent = `已载入版本 ${version.version}；保存修改会创建新版本，不会覆盖旧版。`;
+            } catch (error) { showMessage(error.message); }
+          });
+          row.append(loadButton);
+          if (sourceStatus.retained) {
+            const evidenceButton = createElement("button", "text-button", "查看字面证据");
+            evidenceButton.addEventListener("click", async () => {
+              try {
+                const evidenceResponse = await fetch(`/api/applications/${item.id}/draft-versions/${version.version}/evidence`);
+                const report = await evidenceResponse.json();
+                if (!evidenceResponse.ok) throw new Error(apiErrorMessage(report, "证据检查失败。"));
+                evidenceOutput.replaceChildren(
+                  createElement("h4", "", `版本 ${version.version} · 字面证据检查`),
+                  createElement("p", "", report.warning),
+                  createElement("p", "", `简历原文命中 ${report.resume_hits} 行；岗位原文命中 ${report.job_hits} 行；未命中 ${report.unmatched} 行。`),
+                );
+                for (const line of report.lines) {
+                  const detail = createElement("details", "draft-evidence-line");
+                  const sourceLabel = line.source === "resume" ? "简历原文" : line.source === "job" ? "岗位原文" : "未找到字面片段";
+                  detail.append(createElement("summary", "", `${line.document === "resume" ? "简历" : "求职信"} · ${line.section}：${line.text} — ${sourceLabel}`));
+                  if (line.source_excerpt) detail.append(createElement("p", "", `原文片段：${line.source_excerpt}`));
+                  evidenceOutput.append(detail);
+                }
+              } catch (error) { showMessage(error.message); }
+            });
+            row.append(evidenceButton);
+          }
+          if (!version.reviewed_at) {
+            const reviewButton = createElement("button", "text-button", "核对并确认");
+            reviewButton.addEventListener("click", async () => {
+              if (!window.confirm(`请确认已对照原始简历和岗位描述核对版本 ${version.version} 的全部内容。确认后即可下载该版本。`)) return;
+              try {
+                const reviewResponse = await fetch(`/api/applications/${item.id}/draft-versions/${version.version}/review`, {
+                  method: "PATCH", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ confirmed: true }),
+                });
+                const result = await reviewResponse.json();
+                if (!reviewResponse.ok) throw new Error(apiErrorMessage(result, "确认版本失败。"));
+                await loadVersionList();
+              } catch (error) { showMessage(error.message); }
+            });
+            row.append(reviewButton);
+          } else {
+            for (const kind of ["resume", "letter"]) {
+              for (const format of ["docx", "pdf"]) {
+                const link = createElement("a", "copy-button", `${kind === "resume" ? "简历" : "求职信"} ${format.toUpperCase()}`);
+                link.href = `/api/applications/${item.id}/draft-versions/${version.version}/${kind}.${format}`;
+                row.append(link);
+              }
+            }
+          }
+          versionList.append(row);
+        }
+        compareControls.replaceChildren();
+        if (versions.length >= 2) {
+          const oldSelect = createElement("select");
+          const newSelect = createElement("select");
+          for (const version of versions) {
+            oldSelect.append(createElement("option", "", `版本 ${version.version}`));
+            oldSelect.lastChild.value = version.version;
+            newSelect.append(createElement("option", "", `版本 ${version.version}`));
+            newSelect.lastChild.value = version.version;
+          }
+          oldSelect.value = versions[versions.length - 1].version;
+          newSelect.value = versions[0].version;
+          oldSelect.setAttribute("aria-label", "对比起始版本");
+          newSelect.setAttribute("aria-label", "对比目标版本");
+          const compareButton = createElement("button", "copy-button", "比较两个版本");
+          compareButton.addEventListener("click", async () => {
+            try {
+              const params = new URLSearchParams({ from_version: oldSelect.value, to_version: newSelect.value });
+              const response = await fetch(`/api/applications/${item.id}/draft-versions/compare?${params}`);
+              const diff = await response.json();
+              if (!response.ok) throw new Error(apiErrorMessage(diff, "版本比较失败。"));
+              diffOutput.replaceChildren(
+                createElement("h4", "", `版本 ${diff.from_version} → ${diff.to_version}`),
+                createElement("p", "", "“−”为旧版内容，“+”为新版内容；仅比较文本，不判断事实真伪。"),
+                createElement("h5", "", "简历变化"),
+                createElement("pre", "", diff.resume_diff.join("\n") || "无变化"),
+                createElement("h5", "", "求职信变化"),
+                createElement("pre", "", diff.cover_letter_diff.join("\n") || "无变化"),
+              );
+            } catch (error) { showMessage(error.message); }
+          });
+          compareControls.append(oldSelect, newSelect, compareButton);
+        }
+      }
+      saveVersionButton.addEventListener("click", async () => {
+        saveVersionButton.disabled = true;
+        try {
+          const response = await fetch(`/api/applications/${item.id}/draft-versions`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resume: resumeEditor.read(), cover_letter: letterEditor.read() }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(apiErrorMessage(result, "保存版本失败。"));
+          editorStatus.textContent = `版本 ${result.version} 已保存，待核对确认。`;
+          await loadVersionList();
+        } catch (error) { showMessage(error.message); }
+        finally { saveVersionButton.disabled = false; }
+      });
+      workspace.append(editorHost, saveVersionButton, editorStatus,
+        createElement("h4", "", "历史版本"), versionList,
+        evidenceOutput, compareControls, diffOutput);
+      draftPanel.append(workspace);
+      await loadVersionList();
       draftPanel.classList.remove("is-hidden");
+      card.classList.add("draft-open");
     } catch (error) { showMessage(error instanceof Error ? error.message : "生成定制材料失败。"); }
     finally { draftButton.disabled = false; draftButton.textContent = "重新生成定制材料"; }
   });
@@ -452,6 +629,57 @@ function createApplicationCard(item) {
   });
   card.append(details, draftPanel);
   return card;
+}
+
+function apiErrorMessage(data, fallback) {
+  if (typeof data?.detail === "string") return data.detail;
+  if (Array.isArray(data?.detail)) return data.detail.map((entry) => entry.msg).join("；");
+  return fallback;
+}
+
+function buildDraftEditor(documentData, label) {
+  const element = createElement("section", "draft-editor");
+  element.append(createElement("h5", "", label));
+  const titleInput = createElement("input");
+  titleInput.setAttribute("aria-label", `${label}标题`);
+  titleInput.value = documentData.title;
+  element.append(titleInput);
+  const sectionsHost = createElement("div", "draft-editor-sections");
+  const sectionEditors = [];
+  function addSection(heading = "", lines = []) {
+    const section = createElement("div", "draft-editor-section");
+    const headingInput = createElement("input");
+    headingInput.setAttribute("aria-label", `${label}章节标题`);
+    headingInput.placeholder = "章节标题";
+    headingInput.value = heading;
+    const linesInput = createElement("textarea");
+    linesInput.setAttribute("aria-label", `${label}章节内容，每行一条`);
+    linesInput.rows = Math.max(3, Math.min(lines.length + 1, 10));
+    linesInput.placeholder = "每行一条内容";
+    linesInput.value = lines.join("\n");
+    const removeButton = createElement("button", "text-button danger-button", "删除章节");
+    removeButton.type = "button";
+    removeButton.addEventListener("click", () => section.remove());
+    section.append(headingInput, linesInput, removeButton);
+    sectionsHost.append(section);
+    sectionEditors.push({ section, headingInput, linesInput });
+  }
+  for (const section of documentData.sections) addSection(section.heading, section.lines);
+  const addButton = createElement("button", "text-button", "添加章节");
+  addButton.type = "button";
+  addButton.addEventListener("click", () => addSection());
+  element.append(sectionsHost, addButton);
+  return {
+    element,
+    read: () => ({
+      title: titleInput.value.trim(),
+      sections: sectionEditors.filter((editor) => editor.section.parentNode === sectionsHost)
+        .map((editor) => ({
+          heading: editor.headingInput.value.trim(),
+          lines: editor.linesInput.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+        })),
+    }),
+  };
 }
 
 async function loadApplications() {
@@ -659,6 +887,14 @@ saveApplicationButton.addEventListener("click", async () => {
     showMessage("请先完成简历、岗位和匹配报告分析。");
     return;
   }
+  if (retainSourceText.checked && !resumeText.textContent.trim()) {
+    showMessage("如需保存原文，请先点击“开始解析”获得简历正文，或取消原文留存勾选。");
+    return;
+  }
+  if (retainSourceText.checked && !jobDescription.value.trim()) {
+    showMessage("如需保存原文，请先填写岗位描述，或取消原文留存勾选。");
+    return;
+  }
   saveApplicationButton.disabled = true;
   saveApplicationButton.querySelector("span:first-child").textContent = "正在保存…";
   try {
@@ -675,11 +911,17 @@ saveApplicationButton.addEventListener("click", async () => {
         status: saveStatus.value,
         job_url: saveJobUrl.value.trim() || null,
         notes: saveNotes.value.trim() || null,
+        retain_source_text: retainSourceText.checked,
+        ...(retainSourceText.checked ? {
+          resume_text: resumeText.textContent,
+          job_description: jobDescription.value.trim(),
+        } : {}),
       }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "保存投递记录失败。");
+    if (!response.ok) throw new Error(apiErrorMessage(data, "保存投递记录失败。"));
     saveApplicationButton.querySelector("span:first-child").textContent = "保存成功";
+    retainSourceText.checked = false;
     await loadApplications();
     document.querySelector("#applications-panel").scrollIntoView({ behavior: "smooth" });
   } catch (error) {

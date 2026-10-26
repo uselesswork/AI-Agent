@@ -1,8 +1,10 @@
-"""五表结构；applications 的旧快照字段保留以兼容现有接口。"""
+"""七表结构；applications 的旧快照字段保留以兼容现有接口。"""
 
 from sqlalchemy import (
     JSON, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
+    UniqueConstraint,
 )
+from sqlalchemy.dialects.mysql import LONGTEXT
 
 metadata = MetaData()
 
@@ -83,5 +85,29 @@ application_events = Table(
     Column("to_status", String(20), nullable=False),
     Column("note", Text),
     Column("occurred_at", DateTime, nullable=False),
+    mysql_charset="utf8mb4",
+)
+
+draft_versions = Table(
+    "draft_versions", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("application_id", Integer,
+           ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("version", Integer, nullable=False),
+    Column("resume", JSON, nullable=False),
+    Column("cover_letter", JSON, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("reviewed_at", DateTime(timezone=True)),
+    UniqueConstraint("application_id", "version", name="uq_draft_application_version"),
+    mysql_charset="utf8mb4",
+)
+
+application_sources = Table(
+    "application_sources", metadata,
+    Column("application_id", Integer,
+           ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True),
+    Column("resume_text", Text().with_variant(LONGTEXT, "mysql"), nullable=False),
+    Column("job_description", Text().with_variant(LONGTEXT, "mysql"), nullable=False),
+    Column("stored_at", DateTime(timezone=True), nullable=False),
     mysql_charset="utf8mb4",
 )

@@ -48,7 +48,8 @@ def test_seed_and_backfill_repeatable(tmp_path):
         assert seed(engine) == (6, 0)
         counts = verify_relations(engine)
         assert counts == {"resumes": 1, "jobs": 6, "match_reports": 6,
-                          "applications": 6, "application_events": 6}
+                          "applications": 6, "application_events": 6,
+                          "draft_versions": 0, "application_sources": 0}
         assert backfill(engine) == 0
         assert seed(engine) == (0, 6)
         assert verify_relations(engine) == counts

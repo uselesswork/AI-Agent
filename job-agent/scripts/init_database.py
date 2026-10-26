@@ -1,4 +1,4 @@
-"""MySQL 五表增量初始化、旧记录关联回填、测试数据导入和回读。"""
+"""MySQL 增量初始化、旧记录关联回填、测试数据导入和回读。"""
 
 from datetime import UTC, datetime
 
@@ -7,7 +7,8 @@ from sqlalchemy.schema import AddConstraint, CreateColumn
 
 from app.core.config import get_settings
 from app.core.database_schema import (
-    application_events, applications_table, jobs, match_reports, metadata, resumes,
+    application_events, application_sources, applications_table, draft_versions,
+    jobs, match_reports, metadata, resumes,
 )
 from app.services.application_relations import add_event, attach_snapshot
 from scripts.seed_applications import seed, verify
@@ -55,7 +56,8 @@ def backfill(engine):
 def verify_relations(engine):
     with engine.connect() as connection:
         counts = {table.name: connection.scalar(select(func.count()).select_from(table))
-                  for table in (resumes, jobs, match_reports, applications_table, application_events)}
+                  for table in (resumes, jobs, match_reports, applications_table,
+                                application_events, draft_versions, application_sources)}
         joined = applications_table.join(resumes).join(
             jobs, applications_table.c.job_id == jobs.c.id).join(
             match_reports, applications_table.c.match_report_id == match_reports.c.id)

@@ -709,6 +709,8 @@ a {
   font-size: 10px;
 }
 .wide-field { grid-column: 1 / -1; }
+.save-fields .source-consent { display: flex; gap: 9px; align-items: flex-start; line-height: 1.6; }
+.save-fields .source-consent input { width: auto; margin: 2px 0 0; padding: 0; flex: none; }
 
 .applications-panel {
   margin-top: 28px;
@@ -724,6 +726,7 @@ a {
 .application-count { margin-bottom: 12px; color: var(--muted); font-size: 10px; }
 .application-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .application-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #faf9f4; }
+.application-card.draft-open { grid-column: 1 / -1; }
 .application-card-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
 .application-company { display: block; margin-bottom: 7px; color: var(--green); font-size: 9px; font-weight: 800; }
 .application-card h3 { margin: 0; font-size: 14px; }
@@ -741,8 +744,27 @@ a {
 .draft-panel h5 { margin: 13px 0 5px; color: var(--green); font-size: 10px; }
 .draft-panel p { margin: 5px 0; color: var(--ink); font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
 .draft-downloads { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.draft-downloads small { flex-basis: 100%; color: var(--muted); font-size: 9px; }
 .draft-downloads a { text-decoration: none; }
 .draft-notices { background: #fffdf5; }
+.draft-workspace { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.draft-editors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 16px 0; }
+.draft-editor { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #faf9f4; }
+.draft-editor input, .draft-editor textarea { width: 100%; margin: 7px 0; padding: 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; font: 11px/1.5 "Microsoft YaHei", sans-serif; }
+.draft-editor textarea { min-height: 76px; resize: vertical; }
+.draft-editor-section { margin: 12px 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.draft-status { color: var(--green) !important; }
+.draft-version-list { display: grid; gap: 9px; }
+.draft-version-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 9px; }
+.draft-version-row strong { font-size: 11px; }
+.draft-version-row small { color: var(--muted); font-size: 9px; }
+.draft-version-row a { text-decoration: none; }
+.draft-evidence-output, .draft-diff-output { margin-top: 14px; }
+.draft-evidence-line { margin: 7px 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.draft-evidence-line summary { cursor: pointer; font-size: 10px; overflow-wrap: anywhere; }
+.draft-compare-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.draft-compare-controls select { max-width: 150px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; }
+.draft-diff-output pre { max-height: 280px; overflow: auto; padding: 12px; background: #faf9f4; font: 10px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .job-link { color: var(--green); font-size: 9px; font-weight: 700; text-decoration: none; }
 .board-empty { grid-column: 1 / -1; margin: 0; padding: 48px 20px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; font-size: 11px; }
 
@@ -1059,6 +1081,7 @@ a:focus-visible {
 
   .save-fields,
   .application-grid { grid-template-columns: 1fr; }
+  .draft-editors { grid-template-columns: 1fr; }
 
   .board-toolbar { align-items: stretch; flex-direction: column; }
   .board-toolbar label { width: 100%; }

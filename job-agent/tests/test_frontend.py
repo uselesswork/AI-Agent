@@ -17,6 +17,8 @@ def test_frontend_page_is_available() -> None:
     assert "粘贴岗位描述" in response.text
     assert "简历与岗位匹配度" in response.text
     assert "我的求职看板" in response.text
+    assert "第一至第七阶段" in response.text
+    assert 'id="retain-source-text"' in response.text
     assert "保存岗位与匹配报告" in response.text
     assert "/api/resumes/parse" not in response.text
 
@@ -43,3 +45,9 @@ def test_frontend_assets_are_available() -> None:
     assert "选择匹配报告模型" in js_response.text
     assert 'fetch("/api/applications"' in js_response.text
     assert "loadApplications" in js_response.text
+    assert "buildDraftEditor" in js_response.text
+    assert "核对并确认" in js_response.text
+    assert "/draft-versions" in js_response.text
+    assert "/sources/status" in js_response.text
+    assert "查看字面证据" in js_response.text
+    assert "比较两个版本" in js_response.text
