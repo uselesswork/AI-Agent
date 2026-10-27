@@ -58,11 +58,25 @@ const refreshApplications = document.querySelector("#refresh-applications");
 const applicationPrev = document.querySelector("#application-prev");
 const applicationNext = document.querySelector("#application-next");
 const applicationPageLabel = document.querySelector("#application-page-label");
+const libraryStatus = document.querySelector("#library-status");
+const libraryResumes = document.querySelector("#library-resumes");
+const libraryJobs = document.querySelector("#library-jobs");
+const libraryReports = document.querySelector("#library-reports");
+const libraryResumeSelect = document.querySelector("#library-resume-select");
+const libraryJobSelect = document.querySelector("#library-job-select");
+const libraryProvider = document.querySelector("#library-provider");
+const libraryJobUrl = document.querySelector("#library-job-url");
+const saveCurrentResume = document.querySelector("#save-current-resume");
+const saveCurrentJob = document.querySelector("#save-current-job");
+const refreshLibrary = document.querySelector("#refresh-library");
+const libraryReanalyze = document.querySelector("#library-reanalyze");
 
 let currentFile = null;
 let currentCandidateProfile = null;
 let currentJobProfile = null;
 let currentMatchData = null;
+let libraryResumeId = null;
+let libraryJobId = null;
 let applicationPage = 1;
 let applicationQuery = "";
 let applicationRequestId = 0;
@@ -98,6 +112,8 @@ function clearResult() {
   currentCandidateProfile = null;
   currentJobProfile = null;
   currentMatchData = null;
+  saveCurrentResume.disabled = true;
+  saveCurrentJob.disabled = true;
 }
 
 function createElement(tag, className, text) {
@@ -236,6 +252,7 @@ function renderProfile(data) {
 
   profilePanel.classList.remove("is-hidden");
   currentCandidateProfile = profile;
+  saveCurrentResume.disabled = false;
   jobMatchPanel.classList.remove("is-hidden");
   profilePanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -271,6 +288,7 @@ function createMatchProviderPicker() {
 }
 
 function renderJob(profile) {
+  saveCurrentJob.disabled = false;
   jobPreview.replaceChildren();
   const title = createElement("h3", "job-preview-title", profile.title || "未识别岗位名称");
   const meta = [profile.company, profile.location, profile.education].filter(Boolean).join(" · ");
@@ -739,6 +757,197 @@ function buildDraftEditor(documentData, label) {
   };
 }
 
+async function libraryRequest(url, options) {
+  const response = await fetch(url, options);
+  if (response.status === 204) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(apiErrorMessage(data, "资料库操作失败。"));
+  return data;
+}
+
+function libraryJsonToggle(label, value) {
+  const block = createElement("details", "library-json-block");
+  block.append(createElement("summary", "", label),
+    createElement("pre", "history-json", JSON.stringify(value, null, 2)));
+  return block;
+}
+
+function fillLibrarySelect(select, items, label, selectedId) {
+  select.replaceChildren();
+  for (const item of items) {
+    const option = createElement("option", "", label(item));
+    option.value = String(item.id);
+    select.append(option);
+  }
+  const chosen = items.some((item) => item.id === selectedId) ? selectedId : items[0]?.id;
+  if (chosen) select.value = String(chosen);
+  select.disabled = !items.length;
+  return chosen ?? null;
+}
+
+async function loadLibrary() {
+  libraryStatus.textContent = "正在读取资料库…";
+  try {
+    const [resumes, jobs, reports] = await Promise.all([
+      libraryRequest("/api/library/resumes"),
+      libraryRequest("/api/library/jobs"),
+      libraryRequest("/api/library/reports"),
+    ]);
+    libraryResumeId = fillLibrarySelect(libraryResumeSelect, resumes,
+      (item) => `${item.filename} · ${item.profile.basic_info?.name || "未填写姓名"}`, libraryResumeId);
+    libraryJobId = fillLibrarySelect(libraryJobSelect, jobs,
+      (item) => `${item.profile.company || "未填写公司"} · ${item.profile.title || "未识别岗位"}`, libraryJobId);
+    libraryReanalyze.disabled = !libraryResumeId || !libraryJobId;
+
+    libraryResumes.replaceChildren();
+    if (!resumes.length) libraryResumes.append(createElement("p", "board-empty", "暂无保存的简历画像。"));
+    for (const item of resumes) {
+      const card = createElement("article", "library-card");
+      card.append(createElement("h4", "", item.filename),
+        createElement("p", "", `${item.profile.basic_info?.name || "未填写姓名"} · 保存于 ${formatDate(item.created_at)}`));
+      const actions = createElement("div", "library-card-actions");
+      const choose = createElement("button", "text-button", "选作分析简历");
+      choose.addEventListener("click", () => {
+        libraryResumeId = item.id;
+        libraryResumeSelect.value = String(item.id);
+        libraryStatus.textContent = `已选择简历：${item.filename}`;
+      });
+      const remove = createElement("button", "text-button danger-button", "删除资料");
+      remove.addEventListener("click", async () => {
+        if (!window.confirm(`确定删除简历画像“${item.filename}”吗？被投递或报告引用时不能删除。`)) return;
+        try {
+          await libraryRequest(`/api/library/resumes/${item.id}`, { method: "DELETE" });
+          if (libraryResumeId === item.id) libraryResumeId = null;
+          await loadLibrary();
+        } catch (error) { libraryStatus.textContent = error.message; }
+      });
+      actions.append(choose, remove);
+      card.append(actions, libraryJsonToggle("查看完整画像", item.profile));
+      libraryResumes.append(card);
+    }
+
+    libraryJobs.replaceChildren();
+    if (!jobs.length) libraryJobs.append(createElement("p", "board-empty", "暂无保存的岗位资料。"));
+    for (const item of jobs) {
+      const card = createElement("article", "library-card");
+      card.append(createElement("h4", "", `${item.favorite ? "★ " : ""}${item.profile.title || "未识别岗位"}`),
+        createElement("p", "", `${item.profile.company || "未填写公司"} · ${item.profile.location || "地点未提供"}`));
+      if (item.job_url && /^https?:\/\//i.test(item.job_url)) {
+        const link = createElement("a", "job-link", "打开岗位链接 ↗");
+        link.href = item.job_url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        card.append(link);
+      }
+      const actions = createElement("div", "library-card-actions");
+      const choose = createElement("button", "text-button", "选作分析岗位");
+      choose.addEventListener("click", () => {
+        libraryJobId = item.id;
+        libraryJobSelect.value = String(item.id);
+        libraryStatus.textContent = `已选择岗位：${item.profile.title || "未识别岗位"}`;
+      });
+      const favorite = createElement("button", "text-button", item.favorite ? "取消收藏" : "收藏");
+      favorite.addEventListener("click", async () => {
+        try {
+          await libraryRequest(`/api/library/jobs/${item.id}/favorite`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ favorite: !item.favorite }),
+          });
+          await loadLibrary();
+        } catch (error) { libraryStatus.textContent = error.message; }
+      });
+      const remove = createElement("button", "text-button danger-button", "删除资料");
+      remove.addEventListener("click", async () => {
+        if (!window.confirm(`确定删除岗位“${item.profile.title || "未识别岗位"}”吗？被投递或报告引用时不能删除。`)) return;
+        try {
+          await libraryRequest(`/api/library/jobs/${item.id}`, { method: "DELETE" });
+          if (libraryJobId === item.id) libraryJobId = null;
+          await loadLibrary();
+        } catch (error) { libraryStatus.textContent = error.message; }
+      });
+      actions.append(choose, favorite, remove);
+      card.append(actions, libraryJsonToggle("查看完整岗位画像", item.profile));
+      libraryJobs.append(card);
+    }
+
+    libraryReports.replaceChildren();
+    if (!reports.length) libraryReports.append(createElement("p", "board-empty", "暂无匹配报告。"));
+    for (const item of reports) {
+      const card = createElement("article", "library-card");
+      card.append(createElement("h4", "", `${item.company || "未填写公司"} · ${item.job_title || "未识别岗位"} · ${item.overall_score} 分`),
+        createElement("p", "", `${item.resume_filename} · ${item.provider} / ${item.model} · ${formatDate(item.created_at)}`));
+      const view = createElement("button", "text-button", "查看完整报告");
+      const host = createElement("div", "library-report-detail");
+      view.addEventListener("click", async () => {
+        if (host.childNodes.length) { host.replaceChildren(); return; }
+        try {
+          const detail = await libraryRequest(`/api/library/reports/${item.id}`);
+          host.append(libraryJsonToggle("报告详情", detail.result));
+          host.firstChild.open = true;
+        } catch (error) { libraryStatus.textContent = error.message; }
+      });
+      card.append(view, host);
+      libraryReports.append(card);
+    }
+    libraryStatus.textContent = `已读取 ${resumes.length} 份简历画像、${jobs.length} 个岗位和最近 ${reports.length} 份报告。`;
+  } catch (error) {
+    libraryStatus.textContent = error instanceof Error ? error.message : "资料库读取失败。";
+  }
+}
+
+saveCurrentResume.addEventListener("click", async () => {
+  if (!currentCandidateProfile || !currentFile) return;
+  saveCurrentResume.disabled = true;
+  try {
+    const saved = await libraryRequest("/api/library/resumes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: currentFile.name, profile: currentCandidateProfile }),
+    });
+    libraryResumeId = saved.asset.id;
+    await loadLibrary();
+    libraryStatus.textContent = saved.created ? "简历画像已保存。" : "相同简历画像已存在，已选用原记录。";
+  } catch (error) { libraryStatus.textContent = error.message; }
+  finally { saveCurrentResume.disabled = false; }
+});
+
+saveCurrentJob.addEventListener("click", async () => {
+  if (!currentJobProfile) return;
+  saveCurrentJob.disabled = true;
+  try {
+    const saved = await libraryRequest("/api/library/jobs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: currentJobProfile, job_url: libraryJobUrl.value.trim() || null,
+        favorite: true }),
+    });
+    libraryJobId = saved.asset.id;
+    await loadLibrary();
+    libraryStatus.textContent = saved.created ? "岗位已保存并收藏。" : "相同岗位已存在，已选用并收藏。";
+  } catch (error) { libraryStatus.textContent = error.message; }
+  finally { saveCurrentJob.disabled = false; }
+});
+
+libraryResumeSelect.addEventListener("change", () => { libraryResumeId = Number(libraryResumeSelect.value); });
+libraryJobSelect.addEventListener("change", () => { libraryJobId = Number(libraryJobSelect.value); });
+refreshLibrary.addEventListener("click", loadLibrary);
+libraryReanalyze.addEventListener("click", async () => {
+  if (!libraryResumeId || !libraryJobId) return;
+  if (!window.confirm("重新分析会调用所选模型并保存一份新报告，确定继续吗？")) return;
+  libraryReanalyze.disabled = true;
+  libraryStatus.textContent = "正在重新分析并保存报告…";
+  try {
+    const report = await libraryRequest("/api/library/reports/reanalyze", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resume_id: libraryResumeId, job_id: libraryJobId,
+        provider: libraryProvider.value }),
+    });
+    await loadLibrary();
+    libraryStatus.textContent = `新报告 ${report.id} 已保存，匹配分 ${report.overall_score}。旧投递未改变。`;
+  } catch (error) { libraryStatus.textContent = error.message; }
+  finally { libraryReanalyze.disabled = !libraryResumeId || !libraryJobId; }
+});
+
+loadLibrary();
+
 async function loadApplications() {
   const requestId = ++applicationRequestId;
   const params = new URLSearchParams({
@@ -1002,6 +1211,7 @@ saveApplicationButton.addEventListener("click", async () => {
     applicationFilter.value = "";
     applicationSort.value = "updated_desc";
     await loadApplications();
+    await loadLibrary();
     document.querySelector("#applications-panel").scrollIntoView({ behavior: "smooth" });
   } catch (error) {
     showMessage(error instanceof Error ? error.message : "保存投递记录失败。");

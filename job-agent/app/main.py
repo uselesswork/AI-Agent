@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.applications import router as applications_router
 from app.api.jobs import router as jobs_router
+from app.api.library import router as library_router
 from app.api.matches import router as matches_router
 from app.api.resumes import router as resumes_router
 
@@ -16,6 +17,7 @@ app.include_router(resumes_router)
 app.include_router(jobs_router)
 app.include_router(matches_router)
 app.include_router(applications_router)
+app.include_router(library_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
