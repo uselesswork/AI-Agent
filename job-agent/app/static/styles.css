@@ -768,6 +768,25 @@ a {
 .library-json-block summary { cursor: pointer; font-size: 10px; font-weight: 700; }
 .library-reanalyze, .library-history { margin-top: 18px; }
 .library-reanalyze-controls .primary-button { min-height: 39px; }
+
+.discovery-panel { margin-top: 28px; padding: 42px; border: 1px solid var(--line); border-radius: 28px; background: var(--surface); box-shadow: var(--shadow); }
+.discovery-hint, .discovery-status { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.discovery-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: end; margin: 20px 0; }
+.discovery-controls label, .discovery-import-provider label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; }
+.discovery-controls input, .discovery-controls select, .discovery-import-provider select { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--ink); }
+.discovery-controls .discovery-check { display: flex; grid-column: span 2; align-items: center; gap: 8px; line-height: 1.5; }
+.discovery-controls .discovery-check input { width: auto; }
+.discovery-controls button:disabled { opacity: .5; cursor: wait; }
+.discovery-import-provider { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }
+.discovery-import-provider label { min-width: 180px; }
+.discovery-import-provider small { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.discovery-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.discovery-card { min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: #faf9f4; }
+.discovery-card h4 { margin: 0 0 7px; font-size: 12px; overflow-wrap: anywhere; }
+.discovery-card p { margin: 5px 0; color: var(--muted); font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.discovery-excerpt { max-height: 100px; overflow: auto; white-space: pre-wrap; }
+.discovery-import-history { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+.discovery-import-history h3 { margin: 0 0 14px; font-size: 14px; }
 .draft-panel { display: grid; gap: 15px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .draft-document, .draft-notices { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: white; }
 .draft-panel h4 { margin: 0 0 10px; font-size: 12px; }
@@ -1109,6 +1128,9 @@ a:focus-visible {
   .library-panel { padding: 26px 18px; border-radius: 22px; }
 
   .library-columns { grid-template-columns: 1fr; }
+  .discovery-panel { padding: 26px 18px; border-radius: 22px; }
+  .discovery-controls, .discovery-results { grid-template-columns: 1fr; }
+  .discovery-controls .discovery-check { grid-column: auto; }
 
   .match-hero { grid-template-columns: 1fr; }
 

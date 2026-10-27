@@ -17,13 +17,15 @@ def test_frontend_page_is_available() -> None:
     assert "粘贴岗位描述" in response.text
     assert "简历与岗位匹配度" in response.text
     assert "我的求职看板" in response.text
-    assert "第一至第九阶段" in response.text
+    assert "第一至第十阶段" in response.text
     assert 'id="application-query"' in response.text
     assert 'id="application-prev"' in response.text
     assert 'id="retain-source-text"' in response.text
     assert "保存岗位与匹配报告" in response.text
     assert 'id="library-panel"' in response.text
     assert 'id="library-reanalyze"' in response.text
+    assert 'id="discovery-panel"' in response.text
+    assert 'id="discovery-board"' in response.text
     assert "/api/resumes/parse" not in response.text
 
 
@@ -60,3 +62,5 @@ def test_frontend_assets_are_available() -> None:
     assert "实际投递日期" in js_response.text
     assert "/api/library/reports/reanalyze" in js_response.text
     assert "/api/library/jobs" in js_response.text
+    assert "/api/discovery/search" in js_response.text
+    assert "/api/discovery/imports" in js_response.text

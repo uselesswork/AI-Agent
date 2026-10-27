@@ -314,6 +314,35 @@
           </div>
         </section>
 
+        <section class="discovery-panel" id="discovery-panel" aria-labelledby="discovery-title">
+          <div class="profile-header">
+            <div>
+              <p class="eyebrow">第十阶段 · 公开岗位发现</p>
+              <h2 id="discovery-title">选择招聘板并发现岗位</h2>
+            </div>
+            <button class="copy-button" id="refresh-imports" type="button">刷新导入记录</button>
+          </div>
+          <p class="discovery-hint">只读取你指定的 Greenhouse 或 Lever 公开招聘板，不支持任意网址抓取。预览不落库；选中岗位后才会调用所选模型解析并导入资料库。</p>
+          <div class="discovery-controls">
+            <label>公开来源<select id="discovery-source"><option value="greenhouse">Greenhouse</option><option value="lever">Lever</option></select></label>
+            <label>Board / Site 标识<input id="discovery-board" maxlength="80" placeholder="例如公司招聘页 URL 中的标识" /></label>
+            <label>职位关键词<input id="discovery-keyword" maxlength="100" placeholder="例如 Python" /></label>
+            <label>地点关键词<input id="discovery-location" maxlength="100" placeholder="例如 Shanghai" /></label>
+            <label class="discovery-check"><input id="discovery-internship" type="checkbox" />只看标题或岗位类型含“实习 / Intern”的岗位</label>
+            <button class="primary-button" id="discovery-search" type="button">查找公开岗位</button>
+          </div>
+          <div class="discovery-import-provider">
+            <label>导入时解析模型<select id="discovery-model"><option value="openai">OpenAI</option><option value="deepseek">DeepSeek</option></select></label>
+            <small>导入会调用大模型并产生新资料；需要对应 API Key，可能产生费用。</small>
+          </div>
+          <p id="discovery-status" class="discovery-status" role="status">输入来源和 Board / Site 标识后开始查询。</p>
+          <div id="discovery-results" class="discovery-results"></div>
+          <div class="discovery-import-history">
+            <h3>最近 100 条导入来源记录</h3>
+            <div id="discovery-imports" class="discovery-results"></div>
+          </div>
+        </section>
+
         <section class="notes" aria-labelledby="notes-title">
           <div>
             <p class="eyebrow">测试提示</p>
@@ -340,7 +369,7 @@
       </main>
 
       <footer>
-          <span>AI 求职助手 · 第一至第九阶段测试页面</span>
+          <span>AI 求职助手 · 第一至第十阶段测试页面</span>
         <a href="/docs">打开接口文档</a>
       </footer>
     </div>

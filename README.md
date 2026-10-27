@@ -19,15 +19,15 @@
 | 第七阶段 | 授权留存原文、草稿字面证据与版本差异 | [原文留存与证据核对](docs/第七阶段-原文留存与证据核对.md) |
 | 第八阶段 | 看板搜索、分页、完整历史报告回看、状态事件时间线与投递日期管理 | [看板搜索与历史回看](docs/第八阶段-看板搜索与历史回看.md) |
 | 第九阶段 | 独立简历与岗位资料库、岗位收藏、精确去重、匹配报告历史及重新分析 | [资料库与报告历史](docs/第九阶段-资料库与报告历史.md) |
-| 第十阶段（规划） | 岗位发现与导入、筛选条件、来源记录和重复岗位处理 | 未实现 |
+| 第十阶段 | 用户指定 Greenhouse/Lever 招聘板的岗位发现、筛选、确认导入与来源去重 | [公开岗位发现与导入](docs/第十阶段-公开岗位发现与导入.md) |
 | 第十一阶段（规划） | 定制材料模板切换、人工证据标注、来源关联和不可靠内容提示 | 未实现 |
 | 第十二阶段（规划） | 投递截止日期与面试安排、进度提醒、基于已核对材料的面试准备 | 未实现 |
 | 第十三阶段（规划） | 用户登录、数据隔离、个人数据导出与删除、访问控制 | 未实现 |
 | 第十四阶段（规划） | 模型输出评估、浏览器端到端测试、部署与运行监控 | 未实现 |
 
-第一至第九阶段为已实现功能；第十至第十四阶段只是后续模块规划，顺序和范围可随项目目标调整，不代表已有接口、页面或数据表。实现某一阶段时，再创建对应的中文说明文档，并同步更新本索引、当前进度和实际验证范围。已完成的每份说明包含成果总览、文件归属与作用、数据流、接口、测试、限制和维护事项。文件归属按阶段功能梳理，共享文件持续扩展，不等同于某一次提交的精确新增清单。
+第一至第十阶段为已实现功能；第十一至第十四阶段只是后续模块规划，顺序和范围可随项目目标调整，不代表已有接口、页面或数据表。实现某一阶段时，再创建对应的中文说明文档，并同步更新本索引、当前进度和实际验证范围。已完成的每份说明包含成果总览、文件归属与作用、数据流、接口、测试、限制和维护事项。文件归属按阶段功能梳理，共享文件持续扩展，不等同于某一次提交的精确新增清单。
 
-数据库专题：[八张表的职责、字段字典、主外键与初始化说明](docs/数据库设计与字段说明.md)。
+数据库专题：[九张表的职责、字段字典、主外键与初始化说明](docs/数据库设计与字段说明.md)。
 
 ### 文档维护约定
 
@@ -36,7 +36,7 @@
 - 新增阶段时创建独立说明并补充索引；修改已有阶段时更新文档核对日期。
 - 明确区分已实现、提示词约束、待完善和验证范围；不能将模拟测试通过写成真实模型或 MySQL 联调成功。
 - 示例只使用占位密钥和密码，不复制 `.env` 中的真实信息。
-- 本轮文档核对日期：2026-10-27；第九阶段的验证范围见下方及独立阶段说明。
+- 本轮文档核对日期：2026-10-27；第十阶段的验证范围见下方及独立阶段说明。
 
 ## 当前进度
 
@@ -127,6 +127,14 @@
 - 可查看最近 100 条报告历史；仅允许删除没有被报告或投递引用的资料
 - 新增 `job_favorites` 收藏表和独立 MySQL 增量脚本；详见[第九阶段说明](docs/第九阶段-资料库与报告历史.md)
 
+第十阶段的公开岗位发现与导入已经完成：
+
+- 网页端可选择 Greenhouse 或 Lever，填写目标公司的 Board / Site 标识后读取该招聘板的公开岗位
+- 支持标题/描述关键词、地点和实习字样筛选；预览不保存、不调用大模型
+- 用户逐条确认后才用 OpenAI 或 DeepSeek 解析岗位并导入资料库；重复来源跳过模型调用
+- 保存来源、招聘板、外部职位 ID、招聘页链接与导入时间；新增 `job_imports` 表和独立升级脚本
+- 只访问两家公开 API 的固定域名，不支持全网搜索、任意网址抓取或自动投递；详见[第十阶段说明](docs/第十阶段-公开岗位发现与导入.md)
+
 ### 当前实现边界
 
 - 匹配分由大模型生成；后端检查范围、五个维度和权重总和，但尚未重新计算总分或逐字核验引用证据。
@@ -136,6 +144,7 @@
 - 当前是无登录的单用户本地应用，不应将含个人信息的接口直接暴露公网。PDF 导出需要本机可用的中文字体。
 - 第七阶段证据检查仅是去空白、忽略英文大小写的字面片段查找：简历原文命中、岗位原文命中和未命中都不代表自动事实核验。原始简历文件字节仍不保存。
 - 第九阶段资料库只保存结构化画像和报告；重新分析需要所选服务商 API Key，可能产生模型费用。精确去重不是语义识别，资料库仍无用户隔离。
+- 第十阶段必须由用户提供具体招聘板标识，实习筛选只是关键词启发式；最多展示 100 条结果，Lever 最多读取前三页。导入时岗位描述会发送给所选模型服务商。
 - 各阶段说明中列出了更完整的实现限制与后续完善事项。
 
 ## 本地运行
@@ -163,6 +172,8 @@ cd D:\Agent\job-agent
 第八阶段：`GET /api/applications/search?q=关键词&status=待投递&sort=updated_desc&page=1&page_size=10` 返回分页结果；`GET /api/applications/{id}/events` 返回事件时间线；`PATCH /api/applications/{id}` 可传 `{"applied_at":"2026-10-20"}` 或 `null` 修改实际投递日期。原 `GET /api/applications` 数组接口保持兼容。详见[网页端使用指南](网页端使用指南.md)。
 
 第九阶段：`POST/GET /api/library/resumes` 保存/列出简历画像，`POST/GET /api/library/jobs` 保存/列出岗位，`PATCH /api/library/jobs/{id}/favorite` 切换收藏，`GET /api/library/reports` 查看报告历史，`POST /api/library/reports/reanalyze` 基于已存画像调用模型并保存新报告。完整接口与边界见[第九阶段说明](docs/第九阶段-资料库与报告历史.md)。
+
+第十阶段：`POST /api/discovery/search` 从用户指定的 Greenhouse/Lever 招聘板读取并筛选公开岗位；`POST /api/discovery/imports` 确认后解析并导入单条岗位；`GET /api/discovery/imports` 查看来源记录。预览不写数据库，重复导入不再次调用模型。接口参数与数量上限见[第十阶段说明](docs/第十阶段-公开岗位发现与导入.md)。
 
 如果希望激活虚拟环境，可以在当前 PowerShell 窗口临时放行脚本后再激活：
 
@@ -347,7 +358,7 @@ FLUSH PRIVILEGES;
 DATABASE_URL=mysql+pymysql://job_agent:你的密码@127.0.0.1:3306/job_agent?charset=utf8mb4
 ```
 
-如果密码包含 `@`、`:`、`/`、`#` 等特殊字符，需要先进行 URL 编码。数据库和账号需要提前创建。项目支持 MySQL 旧单表逐步升级到当前八表结构；第六、第七、第九阶段也各有只增建对应表的独立脚本。尚无旧 SQLite 到 MySQL 的跨库迁移脚本。生产环境应使用权限受限的独立账号，不建议直接使用 `root`。
+如果密码包含 `@`、`:`、`/`、`#` 等特殊字符，需要先进行 URL 编码。数据库和账号需要提前创建。项目支持 MySQL 旧单表逐步升级到当前九表结构；第六、第七、第九、第十阶段也各有只增建对应表的独立脚本。尚无旧 SQLite 到 MySQL 的跨库迁移脚本。生产环境应使用权限受限的独立账号，不建议直接使用 `root`。
 
 ### 完整初始化、旧数据回填与第六阶段升级
 
@@ -367,7 +378,7 @@ cd D:\Agent\job-agent
 .\.venv\Scripts\python.exe -X utf8 -m scripts.upgrade_draft_versions
 ```
 
-该命令只创建缺失的 `draft_versions` 表并回读现有版本数量，可串行重复执行。完成后重启后端。完整初始化脚本现在会创建全部八张表，但仍包含旧数据回填和测试数据导入步骤。
+该命令只创建缺失的 `draft_versions` 表并回读现有版本数量，可串行重复执行。完成后重启后端。完整初始化脚本现在会创建全部九张表，但仍包含旧数据回填和测试数据导入步骤。
 
 已有六表库启用第七阶段时，在备份并暂停写入后执行；此命令只增加空的原文留存表，不会替旧记录推断或补填原文：
 
@@ -385,6 +396,15 @@ cd D:\Agent\job-agent
 
 完成后重启后端。MySQL DDL 会隐式提交，不能视为可整体回滚的事务。
 
+已有八表库启用第十阶段来源记录时，先备份并暂停应用写入，再执行只增建 `job_imports` 的脚本；它不会抓取公开岗位或导入测试数据：
+
+```powershell
+cd D:\Agent\job-agent
+.\.venv\Scripts\python.exe -X utf8 -m scripts.upgrade_job_imports
+```
+
+完成后重启后端。岗位查询由用户在网页上明确触发，项目没有后台定时抓取。
+
 | 表 | 职责 |
 | --- | --- |
 | `resumes` | 候选人画像，按内容复用 |
@@ -395,8 +415,9 @@ cd D:\Agent\job-agent
 | `draft_versions` | 人工编辑的简历/求职信版本与核对时间 |
 | `application_sources` | 用户明确同意留存的单条投递简历/JD 原文 |
 | `job_favorites` | 第九阶段岗位收藏标记，按岗位独立保存 |
+| `job_imports` | 第十阶段公开岗位来源身份、链接和导入时间 |
 
-详细字段类型、是否可空、字段用途、关系与删除规则见[数据库设计与字段说明](docs/数据库设计与字段说明.md)。第九阶段已提供资料库和独立报告重新分析，但仍没有报告版本切换或招聘网站岗位发现。
+详细字段类型、是否可空、字段用途、关系与删除规则见[数据库设计与字段说明](docs/数据库设计与字段说明.md)。第十阶段已支持用户指定的两类公开招聘板；仍没有跨所有公司的全网搜索、报告版本切换或自动投递。
 
 ## 运行测试
 
@@ -421,14 +442,16 @@ cd D:\Agent\job-agent
 app/api/resumes.py                 简历上传接口与请求校验
 app/api/applications.py           投递、搜索分页、事件、草稿、版本与证据接口
 app/api/library.py                独立资料库、收藏与报告历史接口
+app/api/discovery.py              指定公开招聘板的查询、筛选与导入接口
 app/models/draft.py              定制材料预览结构
 app/models/draft_version.py      人工版本输入、摘要、详情与确认模型
 app/models/evidence.py           留存状态、逐行命中和版本对比模型
 app/models/library.py            资料保存、收藏、报告历史与重新分析模型
+app/models/discovery.py          公开来源、岗位预览与导入响应模型
 app/api/jobs.py                    岗位描述解析接口
 app/api/matches.py                 简历与岗位匹配接口
 app/core/config.py                 OpenAI、DeepSeek 和 MySQL 环境配置
-app/core/database_schema.py        八张表、外键与索引定义
+app/core/database_schema.py        九张表、外键与索引定义
 app/models/candidate.py            候选人画像数据模型
 app/models/application.py         投递、分页和事件响应模型
 app/models/job.py                  岗位画像数据模型
@@ -439,6 +462,8 @@ app/prompts/match_analysis.py      匹配评分提示词
 app/services/document_parser.py   PDF、DOCX、TXT 文本解析
 app/services/application_repository.py 持久化、搜索分页与事件查询
 app/services/library_repository.py 简历/岗位去重、收藏、报告历史与保存
+app/services/job_discovery.py     Greenhouse/Lever 公开接口读取与字段标准化
+app/services/discovery_repository.py 导入来源去重与记录查询
 app/services/application_relations.py 画像复用、报告关联、状态事件
 app/services/draft_composer.py    根据保存事实组织简历和求职信草稿
 app/services/draft_exporter.py    DOCX/PDF 导出及中文 PDF 字体处理
@@ -458,10 +483,12 @@ tests/test_application_drafts.py  第五阶段草稿与四种文件导出测试
 tests/test_draft_versions_api.py  第六阶段版本接口与级联测试
 tests/test_evidence_api.py        第七阶段同意留存、证据和差异测试
 tests/test_library_api.py         第九阶段资料库与模拟重新分析测试
+tests/test_discovery_api.py       第十阶段模拟来源、筛选和去重导入测试
 scripts/init_database.py         MySQL 完整增量初始化、回填及检查
 scripts/upgrade_draft_versions.py MySQL 只新增草稿版本表
 scripts/upgrade_application_sources.py MySQL 只新增原文留存表
 scripts/upgrade_job_favorites.py MySQL 只新增岗位收藏表
+scripts/upgrade_job_imports.py   MySQL 只新增公开岗位来源表
 scripts/seed_applications.py     六条虚构测试记录的可重复导入
 tests/test_resume_api.py          简历上传接口测试
 tests/test_resume_analysis_api.py 候选人画像接口测试
@@ -531,6 +558,8 @@ cd D:\Agent\job-agent
 
 2026-10-27 第九阶段验证：完整自动化测试 57 项通过，Ruff 与前端脚本语法检查通过。新增测试使用临时 SQLite 和模拟匹配模型，覆盖画像/岗位精确复用、收藏切换、引用中的删除保护、报告历史和重新分析不改旧投递。真实 MySQL 已用独立脚本增建空的 `job_favorites`（0 条），只读检查确认两个字段、一个外键，且资料库列表查询成功；没有在真实库保存或删除资料、收藏、生成报告，也没有调用真实大模型或执行浏览器端到端测试。
 
+2026-10-27 第十阶段验证：完整自动化测试 60 项通过，Ruff、前端 JavaScript 语法和差异空白检查通过。新增测试以临时 SQLite、模拟 Greenhouse/Lever 响应和模拟岗位解析器验证来源参数校验、关键词/地点/实习筛选、逐条导入和同源重复跳过模型。真实 MySQL 已用独立脚本增建空的 `job_imports`（0 条），只读检查确认七个字段、`(source, board_token, external_id)` 唯一约束、一个外键及来源列表读取；没有抓取真实招聘板、调用真实大模型、向真实 MySQL 导入岗位或执行浏览器端到端测试。
+
 ## 下一阶段
 
-建议按上表推进第十阶段：由用户明确选择来源后导入岗位、记录来源并处理重复岗位。人工证据标注列入第十一阶段，浏览器端到端测试列入第十四阶段；这些规划阶段尚未实现。当前没有语义级事实核验、一键投递或自动发送功能；后续投递辅助也不等于自动向招聘平台提交申请。
+建议按上表推进第十一阶段：定制材料模板切换、人工证据标注、来源关联与不可靠内容提示。浏览器端到端测试列入第十四阶段；这些规划阶段尚未实现。当前没有语义级事实核验、一键投递或自动发送功能；后续投递辅助也不等于自动向招聘平台提交申请。

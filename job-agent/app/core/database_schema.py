@@ -1,4 +1,4 @@
-"""八表结构；applications 的旧快照字段保留以兼容现有接口。"""
+"""九表结构；applications 的旧快照字段保留以兼容现有接口。"""
 
 from sqlalchemy import (
     JSON, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
@@ -38,6 +38,20 @@ job_favorites = Table(
     "job_favorites", metadata,
     Column("job_id", Integer, ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    mysql_charset="utf8mb4",
+)
+
+job_imports = Table(
+    "job_imports", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("job_id", Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False,
+           index=True),
+    Column("source", String(20), nullable=False),
+    Column("board_token", String(100), nullable=False),
+    Column("external_id", String(100), nullable=False),
+    Column("source_url", String(2000), nullable=False),
+    Column("imported_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("source", "board_token", "external_id", name="uq_job_import_source"),
     mysql_charset="utf8mb4",
 )
 

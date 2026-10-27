@@ -70,6 +70,17 @@ const saveCurrentResume = document.querySelector("#save-current-resume");
 const saveCurrentJob = document.querySelector("#save-current-job");
 const refreshLibrary = document.querySelector("#refresh-library");
 const libraryReanalyze = document.querySelector("#library-reanalyze");
+const discoverySource = document.querySelector("#discovery-source");
+const discoveryBoard = document.querySelector("#discovery-board");
+const discoveryKeyword = document.querySelector("#discovery-keyword");
+const discoveryLocation = document.querySelector("#discovery-location");
+const discoveryInternship = document.querySelector("#discovery-internship");
+const discoveryModel = document.querySelector("#discovery-model");
+const discoverySearch = document.querySelector("#discovery-search");
+const discoveryStatus = document.querySelector("#discovery-status");
+const discoveryResults = document.querySelector("#discovery-results");
+const discoveryImports = document.querySelector("#discovery-imports");
+const refreshImports = document.querySelector("#refresh-imports");
 
 let currentFile = null;
 let currentCandidateProfile = null;
@@ -947,6 +958,110 @@ libraryReanalyze.addEventListener("click", async () => {
 });
 
 loadLibrary();
+
+async function loadImportHistory() {
+  try {
+    const records = await libraryRequest("/api/discovery/imports");
+    discoveryImports.replaceChildren();
+    if (!records.length) {
+      discoveryImports.append(createElement("p", "board-empty", "暂无导入记录。"));
+      return;
+    }
+    for (const item of records) {
+      const card = createElement("article", "discovery-card");
+      card.append(createElement("h4", "", `${item.company || item.board_token} · ${item.title || "未识别岗位"}`),
+        createElement("p", "", `${item.source} / ${item.board_token} / ${item.external_id} · ${formatDate(item.imported_at)}`));
+      if (/^https?:\/\//i.test(item.source_url)) {
+        const link = createElement("a", "job-link", "查看原招聘页 ↗");
+        link.href = item.source_url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        card.append(link);
+      }
+      discoveryImports.append(card);
+    }
+  } catch (error) {
+    discoveryImports.replaceChildren(createElement("p", "board-empty", error.message));
+  }
+}
+
+function renderDiscoveryPostings(items) {
+  discoveryResults.replaceChildren();
+  if (!items.length) {
+    discoveryResults.append(createElement("p", "board-empty", "当前来源没有符合筛选条件的岗位。"));
+    return;
+  }
+  for (const item of items) {
+    const card = createElement("article", "discovery-card");
+    card.append(createElement("h4", "", item.title),
+      createElement("p", "", `${item.company || item.board_token} · ${item.location || "地点未提供"}${item.commitment ? ` · ${item.commitment}` : ""}`));
+    if (item.description_excerpt) card.append(createElement("p", "discovery-excerpt", item.description_excerpt));
+    const actions = createElement("div", "library-card-actions");
+    if (/^https?:\/\//i.test(item.job_url)) {
+      const link = createElement("a", "job-link", "打开原招聘页 ↗");
+      link.href = item.job_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      actions.append(link);
+    }
+    const button = createElement("button", "copy-button",
+      item.imported_job_id ? "已导入" : "解析并导入资料库");
+    button.disabled = Boolean(item.imported_job_id);
+    button.addEventListener("click", async () => {
+      if (!window.confirm("此操作会调用所选大模型解析岗位并保存来源记录，可能产生费用。确定导入吗？")) return;
+      button.disabled = true;
+      button.textContent = "正在解析并导入…";
+      try {
+        const result = await libraryRequest("/api/discovery/imports", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: item.source, board_token: item.board_token,
+            external_id: item.external_id, llm_provider: discoveryModel.value }),
+        });
+        item.imported_job_id = result.record.job_id;
+        button.textContent = "已导入";
+        discoveryStatus.textContent = result.created
+          ? `已导入“${item.title}”${result.job_reused ? "，复用了资料库中的相同岗位" : ""}。`
+          : "该来源岗位已导入，未重复调用模型。";
+        await Promise.all([loadImportHistory(), loadLibrary()]);
+      } catch (error) {
+        discoveryStatus.textContent = error.message;
+        button.textContent = "解析并导入资料库";
+        button.disabled = false;
+      }
+    });
+    actions.append(button);
+    card.append(actions);
+    discoveryResults.append(card);
+  }
+}
+
+discoverySearch.addEventListener("click", async () => {
+  const board = discoveryBoard.value.trim();
+  if (!board) {
+    discoveryStatus.textContent = "请填写招聘板的 Board / Site 标识。";
+    return;
+  }
+  discoverySearch.disabled = true;
+  discoveryStatus.textContent = "正在读取公开岗位…";
+  discoveryResults.replaceChildren();
+  try {
+    const result = await libraryRequest("/api/discovery/search", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: discoverySource.value, board_token: board,
+        keyword: discoveryKeyword.value.trim(), location: discoveryLocation.value.trim(),
+        internship_only: discoveryInternship.checked }),
+    });
+    renderDiscoveryPostings(result.items);
+    discoveryStatus.textContent = `本次读取 ${result.scanned} 条公开岗位，展示 ${result.items.length} 条符合条件的结果。${result.truncated ? "来源或展示数量达到上限，结果可能不完整。" : ""}`;
+  } catch (error) {
+    discoveryStatus.textContent = error.message;
+  } finally {
+    discoverySearch.disabled = false;
+  }
+});
+
+refreshImports.addEventListener("click", loadImportHistory);
+loadImportHistory();
 
 async function loadApplications() {
   const requestId = ++applicationRequestId;
