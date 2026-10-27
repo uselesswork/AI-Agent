@@ -729,7 +729,7 @@ a {
 .board-pagination button:disabled { cursor: not-allowed; opacity: 0.45; }
 .application-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .application-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #faf9f4; }
-.application-card.draft-open { grid-column: 1 / -1; }
+.application-card.draft-open, .application-card.schedule-open { grid-column: 1 / -1; }
 .application-card-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
 .application-company { display: block; margin-bottom: 7px; color: var(--green); font-size: 9px; font-weight: 800; }
 .application-card h3 { margin: 0; font-size: 14px; }
@@ -738,6 +738,23 @@ a {
 .application-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 18px; }
 .application-controls select { flex: 1 1 100%; }
 .application-controls select { margin: 0; }
+.reminder-panel { margin: 18px 0; padding: 18px; border: 1px solid var(--line); border-radius: 15px; background: #faf9f4; }
+.reminder-heading { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.reminder-heading h3 { margin: 3px 0 0; font-size: 14px; }
+.reminder-panel p { color: var(--muted); font-size: 10px; line-height: 1.6; }
+.reminder-item { margin-top: 8px; padding: 10px; border-left: 3px solid var(--green); background: white; font-size: 10px; line-height: 1.6; }
+.reminder-item.is-overdue { border-left-color: var(--danger); }
+.schedule-panel { display: grid; gap: 10px; margin-top: 14px; padding: 14px; border-top: 1px solid var(--line); }
+.schedule-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.schedule-form label { display: grid; gap: 4px; color: var(--muted); font-size: 10px; }
+.schedule-form input, .schedule-form select, .schedule-form textarea { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); font: inherit; }
+.schedule-form .wide-field { grid-column: 1 / -1; }
+.schedule-actions, .schedule-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.schedule-row { padding: 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 10px; }
+.schedule-row strong { margin-right: auto; }
+.schedule-row.is-overdue { border-color: var(--danger); }
+.schedule-row small { flex: 1 1 100%; }
+@media (max-width: 640px) { .schedule-form { grid-template-columns: 1fr; } }
 .danger-button { color: var(--danger); }
 .application-details { display: grid; gap: 9px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .application-details input, .application-details textarea { margin: 0; }

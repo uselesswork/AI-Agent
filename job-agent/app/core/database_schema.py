@@ -1,4 +1,4 @@
-"""十表结构；applications 的旧快照字段保留以兼容现有接口。"""
+"""十一表结构；applications 的旧快照字段保留以兼容现有接口。"""
 
 from sqlalchemy import (
     JSON, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
@@ -151,5 +151,20 @@ draft_annotations = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False),
     UniqueConstraint("version_id", "document", "section_index", "line_index",
                      name="uq_annotation_version_line"),
+    mysql_charset="utf8mb4",
+)
+
+application_milestones = Table(
+    "application_milestones", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("application_id", Integer,
+           ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("kind", String(20), nullable=False),
+    Column("title", String(200), nullable=False),
+    Column("scheduled_at", DateTime(timezone=True), nullable=False, index=True),
+    Column("notes", Text),
+    Column("completed_at", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
     mysql_charset="utf8mb4",
 )

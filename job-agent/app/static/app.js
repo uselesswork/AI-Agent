@@ -58,6 +58,8 @@ const refreshApplications = document.querySelector("#refresh-applications");
 const applicationPrev = document.querySelector("#application-prev");
 const applicationNext = document.querySelector("#application-next");
 const applicationPageLabel = document.querySelector("#application-page-label");
+const reminderList = document.querySelector("#reminder-list");
+const refreshReminders = document.querySelector("#refresh-reminders");
 const libraryStatus = document.querySelector("#library-status");
 const libraryResumes = document.querySelector("#library-resumes");
 const libraryJobs = document.querySelector("#library-jobs");
@@ -384,6 +386,162 @@ async function updateApplication(id, changes) {
   await loadApplications();
 }
 
+const SCHEDULE_KINDS = { deadline: "投递截止", interview: "面试安排", follow_up: "跟进事项" };
+const REMINDER_STATES = { overdue: "已逾期", soon: "即将到期", later: "尚未到期", completed: "已完成" };
+
+async function planningRequest(path, options = {}) {
+  const response = await fetch(`/api/planning${path}`, options);
+  if (response.status === 204) return null;
+  const data = await response.json();
+  if (!response.ok) throw new Error(apiErrorMessage(data, "日程操作失败。"));
+  return data;
+}
+
+function localDateTimeValue(iso) {
+  const date = new Date(iso);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+async function loadReminders() {
+  try {
+    const data = await planningRequest("/reminders?days=7");
+    reminderList.replaceChildren();
+    if (!data.items.length) {
+      reminderList.append(createElement("p", "", "目前没有逾期或未来 7 天内的未完成事项。"));
+      return;
+    }
+    for (const item of data.items) {
+      const block = createElement("div", `reminder-item${item.reminder_state === "overdue" ? " is-overdue" : ""}`);
+      block.append(createElement("strong", "", `${REMINDER_STATES[item.reminder_state]} · ${SCHEDULE_KINDS[item.kind]} · ${formatDate(item.scheduled_at)}`),
+        createElement("p", "", `${item.company || "未填写公司"} · ${item.application_title || `投递 #${item.application_id}`} · ${item.title}`));
+      reminderList.append(block);
+    }
+    if (data.truncated) reminderList.append(createElement("p", "", "仅展示最早的 100 条提醒，请按投递逐项处理。"));
+  } catch (error) {
+    reminderList.replaceChildren(createElement("p", "", error.message || "读取提醒失败。"));
+  }
+}
+
+function buildSchedulePanel(item) {
+  const panel = createElement("section", "schedule-panel is-hidden");
+  panel.append(createElement("h4", "", "投递截止、面试和跟进日程"),
+    createElement("p", "", "填写本地时间；提醒仅在打开或刷新网页时展示，不会主动推送。"));
+  const form = createElement("div", "schedule-form");
+  const kindLabel = createElement("label", "", "事项类型");
+  const kindInput = createElement("select");
+  for (const [value, label] of Object.entries(SCHEDULE_KINDS)) {
+    const option = createElement("option", "", label);
+    option.value = value;
+    kindInput.append(option);
+  }
+  kindLabel.append(kindInput);
+  const titleLabel = createElement("label", "", "标题");
+  const titleInput = createElement("input");
+  titleInput.maxLength = 200;
+  titleInput.placeholder = "如：一轮技术面试";
+  titleLabel.append(titleInput);
+  const timeLabel = createElement("label", "", "日期与时间");
+  const timeInput = createElement("input");
+  timeInput.type = "datetime-local";
+  timeLabel.append(timeInput);
+  const notesLabel = createElement("label", "wide-field", "地点、会议链接或准备备注（可选）");
+  const notesInput = createElement("textarea");
+  notesInput.rows = 2;
+  notesInput.maxLength = 2000;
+  notesLabel.append(notesInput);
+  form.append(kindLabel, titleLabel, timeLabel, notesLabel);
+  const actions = createElement("div", "schedule-actions");
+  const saveButton = createElement("button", "copy-button", "新增日程");
+  const cancelButton = createElement("button", "text-button is-hidden", "取消编辑");
+  actions.append(saveButton, cancelButton);
+  const status = createElement("p", "draft-status", "");
+  const list = createElement("div", "schedule-list");
+  panel.append(form, actions, status, list);
+  let editingId = null;
+
+  function resetForm() {
+    editingId = null;
+    kindInput.disabled = false;
+    kindInput.value = "deadline";
+    titleInput.value = "";
+    timeInput.value = "";
+    notesInput.value = "";
+    saveButton.textContent = "新增日程";
+    cancelButton.classList.add("is-hidden");
+  }
+
+  async function load() {
+    const rows = await planningRequest(`/applications/${item.id}/milestones`);
+    list.replaceChildren();
+    if (!rows.length) list.append(createElement("p", "", "尚无日程。"));
+    for (const row of rows) {
+      const block = createElement("div", `schedule-row${row.reminder_state === "overdue" ? " is-overdue" : ""}`);
+      block.append(createElement("strong", "", `${SCHEDULE_KINDS[row.kind]} · ${row.title}`),
+        createElement("span", "", `${formatDate(row.scheduled_at)} · ${REMINDER_STATES[row.reminder_state]}`));
+      if (row.notes) block.append(createElement("small", "", row.notes));
+      const editButton = createElement("button", "text-button", "编辑");
+      editButton.addEventListener("click", () => {
+        editingId = row.id;
+        kindInput.value = row.kind;
+        kindInput.disabled = true;
+        titleInput.value = row.title;
+        timeInput.value = localDateTimeValue(row.scheduled_at);
+        notesInput.value = row.notes || "";
+        saveButton.textContent = "保存日程修改";
+        cancelButton.classList.remove("is-hidden");
+        titleInput.focus();
+      });
+      const completeButton = createElement("button", "text-button", row.completed_at ? "重新设为未完成" : "标记完成");
+      completeButton.addEventListener("click", async () => {
+        try {
+          await planningRequest(`/applications/${item.id}/milestones/${row.id}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ completed: !row.completed_at }),
+          });
+          await Promise.all([load(), loadReminders()]);
+        } catch (error) { showMessage(error.message); }
+      });
+      const deleteButton = createElement("button", "text-button danger-button", "删除日程");
+      deleteButton.addEventListener("click", async () => {
+        if (!window.confirm(`确定删除“${row.title}”这条日程吗？`)) return;
+        try {
+          await planningRequest(`/applications/${item.id}/milestones/${row.id}`, { method: "DELETE" });
+          if (editingId === row.id) resetForm();
+          await Promise.all([load(), loadReminders()]);
+        } catch (error) { showMessage(error.message); }
+      });
+      block.append(editButton, completeButton, deleteButton);
+      list.append(block);
+    }
+  }
+
+  saveButton.addEventListener("click", async () => {
+    const date = new Date(timeInput.value);
+    if (!titleInput.value.trim() || !timeInput.value || Number.isNaN(date.getTime())) {
+      status.textContent = "请填写标题和有效的日期时间。";
+      return;
+    }
+    saveButton.disabled = true;
+    try {
+      const data = { title: titleInput.value.trim(), scheduled_at: date.toISOString(),
+        notes: notesInput.value.trim() || null };
+      await planningRequest(editingId
+        ? `/applications/${item.id}/milestones/${editingId}`
+        : `/applications/${item.id}/milestones`, {
+        method: editingId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingId ? data : { ...data, kind: kindInput.value }),
+      });
+      status.textContent = editingId ? "日程已修改。" : "日程已添加。";
+      resetForm();
+      await Promise.all([load(), loadReminders()]);
+    } catch (error) { status.textContent = error.message; }
+    finally { saveButton.disabled = false; }
+  });
+  cancelButton.addEventListener("click", resetForm);
+  return { panel, load };
+}
+
 function createApplicationCard(item) {
   const card = createElement("article", "application-card");
   const top = createElement("div", "application-card-top");
@@ -419,9 +577,19 @@ function createApplicationCard(item) {
     draftTemplate.append(option);
   }
   const draftButton = createElement("button", "text-button", "生成定制材料");
+  const scheduleButton = createElement("button", "text-button", "管理日程");
   const deleteButton = createElement("button", "text-button danger-button", "删除");
-  controls.append(statusSelect, detailsButton, draftTemplate, draftButton, deleteButton);
+  controls.append(statusSelect, detailsButton, draftTemplate, draftButton, scheduleButton, deleteButton);
   card.append(controls);
+
+  const schedule = buildSchedulePanel(item);
+  scheduleButton.addEventListener("click", async () => {
+    schedule.panel.classList.toggle("is-hidden");
+    card.classList.toggle("schedule-open", !schedule.panel.classList.contains("is-hidden"));
+    if (schedule.panel.classList.contains("is-hidden")) return;
+    try { await schedule.load(); }
+    catch (error) { showMessage(error.message); }
+  });
 
   const details = createElement("div", "application-details is-hidden");
   const urlInput = createElement("input");
@@ -544,6 +712,7 @@ function createApplicationCard(item) {
       const editorStatus = createElement("p", "draft-status", "未保存的修改不会影响已有版本。");
       const versionList = createElement("div", "draft-version-list");
       const evidenceOutput = createElement("div", "draft-evidence-output");
+      const preparationOutput = createElement("div", "draft-evidence-output");
       const compareControls = createElement("div", "draft-compare-controls");
       const diffOutput = createElement("div", "draft-diff-output");
       const sourceResponse = await fetch(`/api/applications/${item.id}/sources/status`);
@@ -692,6 +861,29 @@ function createApplicationCard(item) {
                 row.append(link);
               }
             }
+            const prepareButton = createElement("button", "text-button", "生成面试准备提纲");
+            prepareButton.addEventListener("click", async () => {
+              try {
+                const plan = await planningRequest(`/applications/${item.id}/interview-prep?version=${version.version}`);
+                preparationOutput.replaceChildren(
+                  createElement("h4", "", `版本 ${plan.version} · 面试准备提纲`),
+                  createElement("p", "", plan.warning),
+                );
+                for (const prompt of plan.prompts) {
+                  const block = createElement("div", "draft-evidence-line");
+                  block.append(createElement("strong", "", prompt.question));
+                  if (prompt.reviewed_material_lines.length) {
+                    for (const line of prompt.reviewed_material_lines) block.append(createElement("p", "", `已确认材料线索：${line}`));
+                  } else {
+                    block.append(createElement("p", "draft-attention", "已确认简历未找到直接对应的表述，请准备真实案例，勿编造。"));
+                  }
+                  preparationOutput.append(block);
+                }
+                preparationOutput.append(createElement("h5", "", "面试前核对清单"));
+                for (const task of plan.checklist) preparationOutput.append(createElement("p", "", task));
+              } catch (error) { showMessage(error.message); }
+            });
+            row.append(prepareButton);
           }
           versionList.append(row);
         }
@@ -745,7 +937,7 @@ function createApplicationCard(item) {
       });
       workspace.append(editorHost, saveVersionButton, editorStatus,
         createElement("h4", "", "历史版本"), versionList,
-        evidenceOutput, compareControls, diffOutput);
+        evidenceOutput, preparationOutput, compareControls, diffOutput);
       draftPanel.append(workspace);
       await loadVersionList();
       draftPanel.classList.remove("is-hidden");
@@ -768,10 +960,10 @@ function createApplicationCard(item) {
     try {
       const response = await fetch(`/api/applications/${item.id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("删除投递记录失败。");
-      await loadApplications();
+      await Promise.all([loadApplications(), loadReminders()]);
     } catch (error) { showMessage(error.message); }
   });
-  card.append(details, draftPanel);
+  card.append(schedule.panel, details, draftPanel);
   return card;
 }
 
@@ -1408,8 +1600,10 @@ applicationQueryInput.addEventListener("keydown", (event) => {
 });
 applicationPrev.addEventListener("click", () => { if (applicationPage > 1) { applicationPage--; loadApplications(); } });
 applicationNext.addEventListener("click", () => { applicationPage++; loadApplications(); });
-refreshApplications.addEventListener("click", loadApplications);
+refreshApplications.addEventListener("click", () => { loadApplications(); loadReminders(); });
+refreshReminders.addEventListener("click", loadReminders);
 loadApplications();
+loadReminders();
 
 parseJobButton.addEventListener("click", async () => {
   const description = jobDescription.value.trim();

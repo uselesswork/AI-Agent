@@ -253,6 +253,14 @@
             <button class="copy-button" id="refresh-applications" type="button">刷新记录</button>
           </div>
           <p class="library-hint">第十一阶段：生成定制材料时可切换模板；保存版本后可查看需核对提示，并在已留存原文的投递中逐行添加人工来源关联。</p>
+          <section class="reminder-panel" aria-labelledby="reminder-title">
+            <div class="reminder-heading">
+              <div><p class="eyebrow">第十二阶段 · 日程与准备</p><h3 id="reminder-title">逾期与未来 7 天提醒</h3></div>
+              <button class="text-button" id="refresh-reminders" type="button">刷新提醒</button>
+            </div>
+            <p>仅在打开或刷新本页面时读取未完成事项；不会发送邮件、系统通知或自动联系招聘方。</p>
+            <div id="reminder-list" aria-live="polite">正在读取提醒…</div>
+          </section>
           <div class="board-toolbar">
             <label>搜索岗位、公司、地点或备注
               <input id="application-query" type="search" maxlength="100" placeholder="输入关键词" />
@@ -370,7 +378,7 @@
       </main>
 
       <footer>
-          <span>AI 求职助手 · 第一至第十一阶段测试页面</span>
+          <span>AI 求职助手 · 第一至第十二阶段测试页面</span>
         <a href="/docs">打开接口文档</a>
       </footer>
     </div>
