@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import Field
 
 from app.models.candidate import StrictModel
+from app.models.annotation import AnnotationDetail
 
 
 class SourceStatus(StrictModel):
@@ -11,12 +12,17 @@ class SourceStatus(StrictModel):
 
 class EvidenceLine(StrictModel):
     document: Literal["resume", "letter"]
+    section_index: int
+    line_index: int
     section: str
     line_number: int
     text: str
     source: Literal["resume", "job"] | None = None
     source_excerpt: str | None = None
     source_offset: int | None = None
+    annotation: AnnotationDetail | None = None
+    attention: Literal["literal_only", "review", "job_as_resume"]
+    attention_reason: str
 
 
 class EvidenceReport(StrictModel):
@@ -26,6 +32,7 @@ class EvidenceReport(StrictModel):
     resume_hits: int
     job_hits: int
     unmatched: int
+    job_as_resume: int = 0
     warning: str = "只检查字面片段是否出现在留存原文；命中不证明表述真实，未命中也不等于虚构。"
 
 

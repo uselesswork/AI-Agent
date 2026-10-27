@@ -1,4 +1,4 @@
-"""九表结构；applications 的旧快照字段保留以兼容现有接口。"""
+"""十表结构；applications 的旧快照字段保留以兼容现有接口。"""
 
 from sqlalchemy import (
     JSON, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
@@ -130,5 +130,26 @@ application_sources = Table(
     Column("resume_text", Text().with_variant(LONGTEXT, "mysql"), nullable=False),
     Column("job_description", Text().with_variant(LONGTEXT, "mysql"), nullable=False),
     Column("stored_at", DateTime(timezone=True), nullable=False),
+    mysql_charset="utf8mb4",
+)
+
+draft_annotations = Table(
+    "draft_annotations", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("version_id", Integer,
+           ForeignKey("draft_versions.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("application_id", Integer,
+           ForeignKey("application_sources.application_id", ondelete="CASCADE"),
+           nullable=False, index=True),
+    Column("document", String(10), nullable=False),
+    Column("section_index", Integer, nullable=False),
+    Column("line_index", Integer, nullable=False),
+    Column("source_kind", String(10), nullable=False),
+    Column("source_quote", Text, nullable=False),
+    Column("note", String(500)),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("version_id", "document", "section_index", "line_index",
+                     name="uq_annotation_version_line"),
     mysql_charset="utf8mb4",
 )

@@ -811,6 +811,10 @@ a {
 .draft-evidence-output, .draft-diff-output { margin-top: 14px; }
 .draft-evidence-line { margin: 7px 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
 .draft-evidence-line summary { cursor: pointer; font-size: 10px; overflow-wrap: anywhere; }
+.draft-attention { color: var(--danger); font-size: 10px; line-height: 1.6; }
+.draft-annotation-form { display: grid; gap: 7px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.draft-annotation-form select, .draft-annotation-form textarea, .draft-annotation-form input { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); font: inherit; }
+.draft-annotation-form .text-button { justify-self: start; }
 .draft-compare-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .draft-compare-controls select { max-width: 150px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; }
 .draft-diff-output pre { max-height: 280px; overflow: auto; padding: 12px; background: #faf9f4; font: 10px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }

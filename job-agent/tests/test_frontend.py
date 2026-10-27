@@ -17,7 +17,8 @@ def test_frontend_page_is_available() -> None:
     assert "粘贴岗位描述" in response.text
     assert "简历与岗位匹配度" in response.text
     assert "我的求职看板" in response.text
-    assert "第一至第十阶段" in response.text
+    assert "第一至第十一阶段" in response.text
+    assert "逐行添加人工来源关联" in response.text
     assert 'id="application-query"' in response.text
     assert 'id="application-prev"' in response.text
     assert 'id="retain-source-text"' in response.text
@@ -55,7 +56,10 @@ def test_frontend_assets_are_available() -> None:
     assert "核对并确认" in js_response.text
     assert "/draft-versions" in js_response.text
     assert "/sources/status" in js_response.text
-    assert "查看字面证据" in js_response.text
+    assert "证据与人工标注" in js_response.text
+    assert "精简模板" in js_response.text
+    assert "/annotations" in js_response.text
+    assert "job_as_resume" in js_response.text
     assert "比较两个版本" in js_response.text
     assert "/api/applications/search?" in js_response.text
     assert "/events" in js_response.text

@@ -2,8 +2,10 @@ from functools import lru_cache
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query, Response, status
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings
+from app.models.annotation import AnnotationDetail, AnnotationWrite, DocumentKind
 from app.models.application import (
     ApplicationCreate,
     ApplicationDetail,
@@ -13,7 +15,7 @@ from app.models.application import (
     ApplicationSummary,
     ApplicationUpdate,
 )
-from app.models.draft import ApplicationDraft
+from app.models.draft import ApplicationDraft, DraftTemplate
 from app.models.draft_version import (
     DraftReviewRequest, DraftVersionCreate, DraftVersionDetail, DraftVersionSummary,
 )
@@ -22,12 +24,15 @@ from app.services.application_repository import (
     ApplicationNotFoundError,
     ApplicationRepository,
 )
+from app.services.annotation_repository import AnnotationRepository
 from app.services.draft_composer import compose_draft
 from app.services.draft_exporter import PdfFontUnavailableError, export_docx, export_pdf
 from app.services.draft_version_repository import (
     DraftVersionNotFoundError, DraftVersionRepository,
 )
-from app.services.evidence_checker import check_version_evidence, compare_versions
+from app.services.evidence_checker import (
+    check_version_evidence, compare_versions, literal_in_source,
+)
 
 router = APIRouter(prefix="/api/applications", tags=["投递管理"])
 
@@ -39,6 +44,10 @@ def get_repository() -> ApplicationRepository:
 
 def get_draft_repository() -> DraftVersionRepository:
     return DraftVersionRepository(get_repository().engine)
+
+
+def get_annotation_repository() -> AnnotationRepository:
+    return AnnotationRepository(get_repository().engine)
 
 
 def _export_response(document, file_format: str, filename: str) -> Response:
@@ -114,16 +123,17 @@ def delete_application_sources(record_id: int) -> Response:
 
 
 @router.get("/{record_id}/draft", response_model=ApplicationDraft)
-def get_application_draft(record_id: int) -> ApplicationDraft:
-    return compose_draft(get_application(record_id))
+def get_application_draft(record_id: int, template: DraftTemplate = "standard") -> ApplicationDraft:
+    return compose_draft(get_application(record_id), template)
 
 
 @router.get("/{record_id}/draft/{kind}.{file_format}")
 def download_application_draft(
     record_id: int, kind: Literal["resume", "letter"],
     file_format: Literal["docx", "pdf"],
+    template: DraftTemplate = "standard",
 ) -> Response:
-    draft = get_application_draft(record_id)
+    draft = get_application_draft(record_id, template)
     document = draft.resume if kind == "resume" else draft.cover_letter
     return _export_response(document, file_format, f"application-{record_id}-{kind}.{file_format}")
 
@@ -183,7 +193,44 @@ def get_version_evidence(
     sources = get_repository().get_sources(record_id)
     if sources is None:
         raise HTTPException(status_code=409, detail="此投递未授权留存原文，无法进行字面证据检查。")
-    return check_version_evidence(record_id, saved, *sources)
+    annotations = get_annotation_repository().list_for_version(saved.id)
+    return check_version_evidence(record_id, saved, *sources, annotations)
+
+
+@router.put("/{record_id}/draft-versions/{version}/annotations",
+            response_model=AnnotationDetail)
+def upsert_version_annotation(
+    record_id: int, version: Annotated[int, Path(ge=1)],
+    data: AnnotationWrite, response: Response,
+) -> AnnotationDetail:
+    response.headers["Cache-Control"] = "no-store"
+    saved = get_draft_version(record_id, version)
+    document = saved.resume if data.document == "resume" else saved.cover_letter
+    if (data.section_index >= len(document.sections) or
+            data.line_index >= len(document.sections[data.section_index].lines)):
+        raise HTTPException(status_code=422, detail="标注位置不属于该草稿版本。")
+    sources = get_repository().get_sources(record_id)
+    if sources is None:
+        raise HTTPException(status_code=409, detail="此投递未留存原文，无法关联人工证据。")
+    source_text = sources[0] if data.source_kind == "resume" else sources[1]
+    if not literal_in_source(data.source_quote, source_text):
+        raise HTTPException(status_code=422, detail="引用片段未在所选来源原文中找到。")
+    try:
+        return get_annotation_repository().upsert(record_id, saved.id, data)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="原文已被删除或标注状态已变化，请刷新重试。") from exc
+
+
+@router.delete("/{record_id}/draft-versions/{version}/annotations",
+               status_code=status.HTTP_204_NO_CONTENT)
+def delete_version_annotation(
+    record_id: int, version: Annotated[int, Path(ge=1)],
+    document: DocumentKind, section_index: int = Query(ge=0),
+    line_index: int = Query(ge=0),
+) -> Response:
+    saved = get_draft_version(record_id, version)
+    get_annotation_repository().delete(saved.id, document, section_index, line_index)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{record_id}/draft-versions/{version}/{kind}.{file_format}")

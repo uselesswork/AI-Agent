@@ -7,7 +7,8 @@ from sqlalchemy import create_engine, delete, func, insert, or_, select, update
 from sqlalchemy.engine import Engine, RowMapping
 
 from app.core.database_schema import (
-    application_events, application_sources, applications_table, jobs, match_reports, metadata,
+    application_events, application_sources, applications_table, draft_annotations, jobs,
+    match_reports, metadata,
 )
 from app.services.application_relations import add_event, attach_snapshot
 from app.models.application import (
@@ -82,6 +83,8 @@ class ApplicationRepository:
                 applications_table.c.id == record_id))
             if exists is None:
                 raise ApplicationNotFoundError
+            connection.execute(delete(draft_annotations).where(
+                draft_annotations.c.application_id == record_id))
             connection.execute(delete(application_sources).where(
                 application_sources.c.application_id == record_id))
 

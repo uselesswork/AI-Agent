@@ -1,5 +1,5 @@
 from app.models.application import ApplicationDetail
-from app.models.draft import ApplicationDraft, DraftDocument, DraftSection
+from app.models.draft import ApplicationDraft, DraftDocument, DraftSection, DraftTemplate
 
 
 def _unique(values: list[str]) -> list[str]:
@@ -10,7 +10,7 @@ def _relevance(text: str, keywords: list[str]) -> int:
     return sum(1 for keyword in keywords if keyword.casefold() in text.casefold())
 
 
-def compose_draft(record: ApplicationDetail) -> ApplicationDraft:
+def compose_draft(record: ApplicationDetail, template: DraftTemplate = "standard") -> ApplicationDraft:
     """只重排已保存的画像事实，不把匹配报告的判断变为简历事实。"""
     candidate, job = record.candidate_profile, record.job_profile
     required = _unique(job.required_skills + job.preferred_skills)
@@ -26,8 +26,11 @@ def compose_draft(record: ApplicationDetail) -> ApplicationDraft:
     projects = sorted(candidate.projects, key=lambda item: _relevance(
         " ".join([item.name, item.description or "", *item.technologies, *item.highlights]),
         required), reverse=True)
+    if template == "compact":
+        skills = skills[:5]
+        projects = projects[:2]
     sections = [DraftSection(heading="基本信息", lines=[name, *contact, f"目标岗位：{target}"])]
-    if candidate.summary:
+    if candidate.summary and template == "standard":
         sections.append(DraftSection(heading="个人简介（原画像）", lines=[candidate.summary]))
     if candidate.education:
         lines = []
@@ -35,9 +38,9 @@ def compose_draft(record: ApplicationDetail) -> ApplicationDraft:
             lines.append(" · ".join(filter(None, [item.institution, item.degree, item.major,
                                                "—".join(filter(None, [item.start_date,
                                                                        item.end_date]))])))
-            if item.courses:
+            if item.courses and template == "standard":
                 lines.append(f"相关课程：{', '.join(item.courses)}")
-            if item.gpa:
+            if item.gpa and template == "standard":
                 lines.append(f"绩点：{item.gpa}")
         sections.append(DraftSection(heading="教育经历", lines=lines))
     if skills:
@@ -50,10 +53,10 @@ def compose_draft(record: ApplicationDetail) -> ApplicationDraft:
             lines.append(" · ".join(filter(None, [item.name, item.role,
                                                 "—".join(filter(None, [item.start_date,
                                                                         item.end_date]))])))
-            if item.description:
+            if item.description and template == "standard":
                 lines.append(item.description)
-            lines.extend(item.highlights)
-            if item.technologies:
+            lines.extend(item.highlights if template == "standard" else item.highlights[:2])
+            if item.technologies and template == "standard":
                 lines.append(f"技术：{', '.join(item.technologies)}")
         sections.append(DraftSection(heading="项目经历", lines=lines))
     if candidate.experiences:
@@ -62,9 +65,9 @@ def compose_draft(record: ApplicationDetail) -> ApplicationDraft:
             lines.append(" · ".join(filter(None, [item.organization, item.role,
                                                 "—".join(filter(None, [item.start_date,
                                                                         item.end_date]))])))
-            lines.extend(item.highlights)
+            lines.extend(item.highlights if template == "standard" else item.highlights[:2])
         sections.append(DraftSection(heading="实践与实习经历", lines=lines))
-    if candidate.certificates:
+    if candidate.certificates and template == "standard":
         sections.append(DraftSection(heading="证书", lines=[
             " · ".join(filter(None, [item.name, item.date])) for item in candidate.certificates
         ]))
@@ -95,11 +98,14 @@ def compose_draft(record: ApplicationDetail) -> ApplicationDraft:
     letter.append(DraftSection(heading="结尾", lines=[
         "感谢您阅读我的申请。附件为简历，期待进一步交流。", name,
     ]))
-    warnings = ["草稿仅根据数据库中保存的结构化画像生成；原始简历和岗位描述未保存，投递前请逐项核对原件。"]
+    warnings = ["草稿仅根据结构化画像生成，不读取可能另行留存的原始简历和岗位描述；投递前请逐项核对原件。"]
+    if template == "compact":
+        warnings.append("精简模板只展示部分已记录的技能、项目与经历；省略不代表这些事实不存在。")
     if not evidence_lines:
         warnings.append("画像缺少可用于求职信的教育、技能、项目或实践经历，正文仅保留基本应聘意向。")
     warnings.extend(candidate.warnings)
     return ApplicationDraft(
+        template=template,
         resume=DraftDocument(title=f"{name}｜{target}定制简历建议稿", sections=sections),
         cover_letter=DraftDocument(title=f"{target}求职信草稿", sections=letter),
         suggestions=_unique(record.match_result.resume_suggestions),

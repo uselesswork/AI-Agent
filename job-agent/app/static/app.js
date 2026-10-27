@@ -411,9 +411,16 @@ function createApplicationCard(item) {
     catch (error) { showMessage(error.message); }
   });
   const detailsButton = createElement("button", "text-button", "查看与编辑");
+  const draftTemplate = createElement("select");
+  draftTemplate.setAttribute("aria-label", "定制材料模板");
+  for (const [value, label] of [["standard", "标准模板"], ["compact", "精简模板"]]) {
+    const option = createElement("option", "", label);
+    option.value = value;
+    draftTemplate.append(option);
+  }
   const draftButton = createElement("button", "text-button", "生成定制材料");
   const deleteButton = createElement("button", "text-button danger-button", "删除");
-  controls.append(statusSelect, detailsButton, draftButton, deleteButton);
+  controls.append(statusSelect, detailsButton, draftTemplate, draftButton, deleteButton);
   card.append(controls);
 
   const details = createElement("div", "application-details is-hidden");
@@ -484,7 +491,7 @@ function createApplicationCard(item) {
     draftButton.disabled = true;
     draftButton.textContent = "正在生成…";
     try {
-      const response = await fetch(`/api/applications/${item.id}/draft`);
+      const response = await fetch(`/api/applications/${item.id}/draft?template=${draftTemplate.value}`);
       const draft = await response.json();
       if (!response.ok) throw new Error(draft.detail || "生成定制材料失败。");
       draftPanel.replaceChildren();
@@ -502,7 +509,7 @@ function createApplicationCard(item) {
         downloads.append(createElement("small", "", "自动建议稿下载（未人工核对）"));
         for (const format of ["docx", "pdf"]) {
           const link = createElement("a", "copy-button", `下载 ${format.toUpperCase()}`);
-          link.href = `/api/applications/${item.id}/draft/${kind}.${format}`;
+          link.href = `/api/applications/${item.id}/draft/${kind}.${format}?template=${draft.template}`;
           downloads.append(link);
         }
         block.append(downloads);
@@ -522,7 +529,7 @@ function createApplicationCard(item) {
       const workspace = createElement("section", "draft-workspace");
       workspace.append(
         createElement("h4", "", "人工编辑与版本保存"),
-        createElement("p", "", "编辑后保存为新版本；请对照原始简历和岗位要求逐项核对，再确认并下载该版本。确认只记录人工操作，不代表系统已核验事实。"),
+        createElement("p", "", "当前为" + (draft.template === "compact" ? "精简" : "标准") + "模板。编辑后保存为新版本；版本保存的是文档内容，不单独保存模板名称。请对照原件逐项核对，确认不代表系统核验事实。"),
       );
       const editorHost = createElement("div", "draft-editors");
       let resumeEditor;
@@ -589,8 +596,8 @@ function createApplicationCard(item) {
           });
           row.append(loadButton);
           if (sourceStatus.retained) {
-            const evidenceButton = createElement("button", "text-button", "查看字面证据");
-            evidenceButton.addEventListener("click", async () => {
+            const evidenceButton = createElement("button", "text-button", "证据与人工标注");
+            async function showEvidenceReport() {
               try {
                 const evidenceResponse = await fetch(`/api/applications/${item.id}/draft-versions/${version.version}/evidence`);
                 const report = await evidenceResponse.json();
@@ -598,17 +605,68 @@ function createApplicationCard(item) {
                 evidenceOutput.replaceChildren(
                   createElement("h4", "", `版本 ${version.version} · 字面证据检查`),
                   createElement("p", "", report.warning),
-                  createElement("p", "", `简历原文命中 ${report.resume_hits} 行；岗位原文命中 ${report.job_hits} 行；未命中 ${report.unmatched} 行。`),
+                  createElement("p", "", `简历原文命中 ${report.resume_hits} 行；岗位原文命中 ${report.job_hits} 行；未命中 ${report.unmatched} 行；简历行仅命中岗位原文 ${report.job_as_resume} 行。`),
                 );
                 for (const line of report.lines) {
                   const detail = createElement("details", "draft-evidence-line");
                   const sourceLabel = line.source === "resume" ? "简历原文" : line.source === "job" ? "岗位原文" : "未找到字面片段";
-                  detail.append(createElement("summary", "", `${line.document === "resume" ? "简历" : "求职信"} · ${line.section}：${line.text} — ${sourceLabel}`));
+                  detail.append(createElement("summary", "", `${line.document === "resume" ? "简历" : "求职信"} · ${line.section}：${line.text} — ${sourceLabel}${line.attention === "job_as_resume" ? " ⚠ 重点核对" : line.attention === "review" ? " · 待核对" : ""}`));
+                  detail.append(createElement("p", "draft-attention", line.attention_reason));
                   if (line.source_excerpt) detail.append(createElement("p", "", `原文片段：${line.source_excerpt}`));
+                  if (line.annotation) detail.append(createElement("p", "", `人工关联：${line.annotation.source_kind === "resume" ? "简历" : "岗位"}原文“${line.annotation.source_quote}”${line.annotation.note ? `；备注：${line.annotation.note}` : ""}。此关联不证明整行真实。`));
+                  const form = createElement("div", "draft-annotation-form");
+                  const sourceSelect = createElement("select");
+                  sourceSelect.setAttribute("aria-label", "人工标注来源");
+                  for (const [value, label] of [["resume", "简历原文"], ["job", "岗位原文"]]) {
+                    const option = createElement("option", "", label);
+                    option.value = value;
+                    sourceSelect.append(option);
+                  }
+                  sourceSelect.value = line.annotation?.source_kind || "resume";
+                  const quoteInput = createElement("textarea");
+                  quoteInput.rows = 2;
+                  quoteInput.placeholder = "粘贴所选原文中的片段（至少 8 个有效字符）";
+                  quoteInput.setAttribute("aria-label", "人工引用原文片段");
+                  quoteInput.value = line.annotation?.source_quote || "";
+                  const noteInput = createElement("input");
+                  noteInput.placeholder = "核对备注（可选）";
+                  noteInput.setAttribute("aria-label", "人工标注备注");
+                  noteInput.value = line.annotation?.note || "";
+                  const saveAnnotation = createElement("button", "text-button", "保存人工关联");
+                  saveAnnotation.addEventListener("click", async () => {
+                    saveAnnotation.disabled = true;
+                    try {
+                      const result = await fetch(`/api/applications/${item.id}/draft-versions/${version.version}/annotations`, {
+                        method: "PUT", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ document: line.document, section_index: line.section_index,
+                          line_index: line.line_index, source_kind: sourceSelect.value,
+                          source_quote: quoteInput.value.trim(), note: noteInput.value.trim() }),
+                      });
+                      const data = await result.json();
+                      if (!result.ok) throw new Error(apiErrorMessage(data, "保存人工关联失败。"));
+                      editorStatus.textContent = `版本 ${version.version} 的人工关联已保存；仍须核对整行内容。`;
+                      await showEvidenceReport();
+                    } catch (error) { showMessage(error.message); }
+                    finally { saveAnnotation.disabled = false; }
+                  });
+                  form.append(sourceSelect, quoteInput, noteInput, saveAnnotation);
+                  if (line.annotation) {
+                    const removeAnnotation = createElement("button", "text-button danger-button", "删除关联");
+                    removeAnnotation.addEventListener("click", async () => {
+                      const params = new URLSearchParams({ document: line.document,
+                        section_index: String(line.section_index), line_index: String(line.line_index) });
+                      const result = await fetch(`/api/applications/${item.id}/draft-versions/${version.version}/annotations?${params}`, { method: "DELETE" });
+                      if (!result.ok) { showMessage("删除人工关联失败。"); return; }
+                      await showEvidenceReport();
+                    });
+                    form.append(removeAnnotation);
+                  }
+                  detail.append(form);
                   evidenceOutput.append(detail);
                 }
               } catch (error) { showMessage(error.message); }
-            });
+            }
+            evidenceButton.addEventListener("click", showEvidenceReport);
             row.append(evidenceButton);
           }
           if (!version.reviewed_at) {
