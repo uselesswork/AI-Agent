@@ -7,7 +7,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import insert, select, delete, func, inspect
+from sqlalchemy import insert, select, delete, func, inspect, update
 from sqlalchemy.engine import Engine
 
 from app.core.database_schema import auth_sessions, users
@@ -112,3 +112,20 @@ class AuthRepository:
     def revoke_session(self, token_hash: str) -> None:
         with self.engine.begin() as connection:
             connection.execute(delete(auth_sessions).where(auth_sessions.c.token_hash == token_hash))
+
+    def reset_password(self, username: str, new_password: str) -> None:
+        """仅供本机管理脚本调用；更新密码并撤销该账号的全部会话。"""
+        normalized = username.strip().lower()
+        password_hash = self.hash_password(new_password)
+        with self.engine.begin() as connection:
+            user_id = connection.scalar(select(users.c.id).where(
+                users.c.username == normalized,
+            ).with_for_update())
+            if user_id is None:
+                raise ValueError("账号不存在，密码未修改。")
+            connection.execute(update(users).where(users.c.id == user_id).values(
+                password_hash=password_hash,
+            ))
+            connection.execute(delete(auth_sessions).where(
+                auth_sessions.c.user_id == user_id,
+            ))

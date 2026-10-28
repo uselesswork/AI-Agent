@@ -155,7 +155,7 @@
 - 所有业务 API 均需有效服务端会话；写请求还需 CSRF 令牌，其他账号的记录无法列出、查看或修改
 - 简历、岗位、报告、投递按账号归属；草稿、人工标注、原文和日程跟随所属投递隔离；相同公开来源在不同账号分别导入
 - 新增 `users`、`auth_sessions`、`user_assets` 三张表，并调整 `job_imports` 账号归属与唯一约束；已有业务数据须由初始账号认领
-- 不开放网页注册；初始账号升级和新账号创建只通过本机交互式脚本完成。详见[第十三阶段说明](docs/第十三阶段-账号登录与数据隔离.md)
+- 不开放网页注册或找回密码；初始账号升级、新账号创建及忘记密码后的重置均通过本机交互式脚本完成。详见[第十三阶段说明](docs/第十三阶段-账号登录与数据隔离.md)
 
 ### 当前实现边界
 
@@ -163,7 +163,7 @@
 - 前端“查看与编辑”可回看旧投递快照；第九阶段可在资料库重新分析并新增独立报告，但不会替换旧投递采用的报告，也没有报告版本切换或对比。
 - 当前持久化使用 SQLAlchemy Core 和 MySQL，没有 Alembic 迁移；数据库自动化测试使用临时 SQLite。
 - 第五阶段自动生成稿只使用数据库里的结构化画像，不含原始简历/JD 全文；第六阶段允许人工编辑和保存，但系统不会核验人工填写的事实。确认时间只代表人工操作，不代表内容已被机器验证。
-- 已增加本机账号与数据隔离，但缺少登录限流、密码重置及公网部署安全验证，仍不应将含个人信息的服务直接暴露公网。PDF 导出需要本机可用的中文字体。
+- 已增加本机账号与数据隔离及本机密码重置，但没有网页自助找回、登录限流或公网部署安全验证，仍不应将含个人信息的服务直接暴露公网。PDF 导出需要本机可用的中文字体。
 - 第七阶段证据检查仅是去空白、忽略英文大小写的字面片段查找：简历原文命中、岗位原文命中和未命中都不代表自动事实核验。原始简历文件字节仍不保存。
 - 第九阶段资料库只保存结构化画像和报告；重新分析需要所选服务商 API Key，可能产生模型费用。精确去重不是语义识别；第十三阶段起按账号隔离。
 - 第十阶段必须由用户提供具体招聘板标识，实习筛选只是关键词启发式；最多展示 100 条结果，Lever 最多读取前三页。导入时岗位描述会发送给所选模型服务商。
@@ -471,6 +471,15 @@ cd D:\Agent\job-agent
 
 不提供网页自助注册。已有账号后旧 `scripts.init_database` / `scripts.seed_applications` 拒绝向共享库写入；测试资料应在登录后的网页按当前账号创建。详见[第十三阶段说明](docs/第十三阶段-账号登录与数据隔离.md)。
 
+忘记网页账号密码时，不要把明文密码写入 `.env`。能在本机访问数据库配置的管理员可运行以下交互式脚本，输入已有用户名、再次确认用户名，再输入两次新密码。脚本不需要旧密码，成功后只修改该账号的密码哈希，并撤销该账号全部现有会话；其他账号和求职资料不变。完成后用新密码重新登录。
+
+```powershell
+cd D:\Agent\job-agent
+.\.venv\Scripts\python.exe -X utf8 -m scripts.reset_user_password
+```
+
+新密码不会回显，也不会写入 `.env`、命令行参数或日志。请将密码保存在个人密码管理器中；此脚本只允许可信的本机数据库管理员使用，**不要**通过网页或远程接口开放。
+
 | 表 | 职责 |
 | --- | --- |
 | `resumes` | 候选人画像，按内容复用 |
@@ -571,6 +580,7 @@ tests/test_discovery_api.py       第十阶段模拟来源、筛选和去重导�
 tests/test_stage_eleven.py        第十一阶段模板、人工关联与风险提示测试
 tests/test_planning_api.py         第十二阶段日程、提醒和面试准备测试
 tests/test_auth_access.py          第十三阶段真实会话、跨账号与个人数据测试
+tests/test_password_reset.py       本机重置密码与会话撤销测试
 tests/conftest.py                  旧阶段测试专用模拟身份
 scripts/init_database.py         MySQL 完整增量初始化、回填及检查
 scripts/upgrade_draft_versions.py MySQL 只新增草稿版本表
@@ -581,6 +591,7 @@ scripts/upgrade_draft_annotations.py MySQL 只新增草稿标注表
 scripts/upgrade_application_milestones.py MySQL 只新增投递日程表
 scripts/upgrade_user_access.py     初始账号创建及历史数据认领
 scripts/create_user.py             本机交互式创建后续空账号
+scripts/reset_user_password.py     本机交互式重置已有账号密码
 scripts/seed_applications.py     六条虚构测试记录的可重复导入
 tests/test_resume_api.py          简历上传接口测试
 tests/test_resume_analysis_api.py 候选人画像接口测试
@@ -661,6 +672,8 @@ cd D:\Agent\job-agent
 2026-10-28 升级前只读复核：数据库可连接，当时已有 14 张表（其中 `users`、`auth_sessions`、`user_assets` 均为 0 行），`job_imports` 仍无 `user_id` 列、使用旧唯一约束；投递记录 7 条，三个关联 ID 均非空。该检查没有执行写入。历史章节中 2026-10-27 的投递数量仅代表当时状态。
 
 2026-10-28 用户在本机交互式运行 `scripts.upgrade_user_access` 成功，脚本报告认领 `resumes` 2、`jobs` 7、`match_reports` 7、`applications` 7 条。随后只读复核确认：`users` 1 行、`user_assets` 23 行，四类归属数与业务表数量一致且均归属初始账号；`job_imports.user_id` 非空，唯一约束为 `(user_id, source, board_token, external_id)`，旧唯一约束已移除。真实库 API 只读检查：`/api/auth/status` 返回 200 且已配置，未登录读取投递返回 401，`/upload` 返回 200。未获取或使用登录密码，因此**未验证真实账号登录、登录后读取、写入、导出或删除**；本轮复核未向真实库写入测试数据。
+
+2026-10-28 本机密码重置脚本新增验证：完整自动化测试 **79 项通过**，Ruff 和差异空白检查通过。新增临时 SQLite 测试覆盖指定账号密码更新、该账号全部会话失效、其他账号保持有效、无效账号/短密码不修改数据，以及终端用户名二次确认；文档本地链接已核对。没有在真实 MySQL 上重置现有账号密码，也没有读取用户密码。
 
 ## 下一阶段
 
