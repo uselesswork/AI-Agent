@@ -23,9 +23,9 @@
 | 第十一阶段 | 定制材料标准/精简模板、逐行人工来源关联与保守风险提示 | [材料模板与人工证据标注](docs/第十一阶段-材料模板与人工证据标注.md) |
 | 第十二阶段 | 投递截止/面试/跟进日程、站内近期提醒、已确认版本的面试准备提纲 | [投递日程提醒与面试准备](docs/第十二阶段-投递日程提醒与面试准备.md) |
 | 第十三阶段 | 本机账号登录、按账号数据隔离、个人数据导出与删除、访问控制 | [账号登录与数据隔离](docs/第十三阶段-账号登录与数据隔离.md) |
-| 第十四阶段（规划） | 模型输出评估、浏览器端到端测试、部署与运行监控 | 未实现 |
+| 第十四阶段 | 模型输出离线评估、浏览器端到端测试、本机就绪检查与可选容器配置 | [评估、端到端测试与部署监控](docs/第十四阶段-评估端到端测试与部署监控.md) |
 
-第一至第十三阶段的代码已实现；第十三阶段初始账号升级已由用户在本机执行，真实账号网页登录仍待人工验证。第十四阶段只是规划。已完成的每份说明包含成果总览、文件归属与作用、数据流、接口、测试、限制和维护事项。文件归属按阶段功能梳理，共享文件持续扩展，不等同于某一次提交的精确新增清单。
+第一至第十四阶段的代码已实现；第十三阶段初始账号升级已由用户在本机执行，真实账号网页登录仍待人工验证。第十四阶段的本机浏览器测试使用虚构账号和临时 SQLite，容器运行尚未验证。已完成的每份说明包含成果总览、文件归属与作用、数据流、接口、测试、限制和维护事项。文件归属按阶段功能梳理，共享文件持续扩展，不等同于某一次提交的精确新增清单。
 
 数据库专题：[十四张表的职责、字段字典、主外键与初始化说明](docs/数据库设计与字段说明.md)。
 
@@ -36,7 +36,7 @@
 - 新增阶段时创建独立说明并补充索引；修改已有阶段时更新文档核对日期。
 - 明确区分已实现、提示词约束、待完善和验证范围；不能将模拟测试通过写成真实模型或 MySQL 联调成功。
 - 示例只使用占位密钥和密码，不复制 `.env` 中的真实信息。
-- 本轮文档核对日期：2026-10-28；第十三阶段的验证范围及真实库只读复核见下方和独立阶段说明。
+- 本轮文档核对日期：2026-10-28；第十三阶段的真实库只读复核和第十四阶段的验证边界见下方及各自的独立说明。
 
 ## 当前进度
 
@@ -157,9 +157,16 @@
 - 新增 `users`、`auth_sessions`、`user_assets` 三张表，并调整 `job_imports` 账号归属与唯一约束；已有业务数据须由初始账号认领
 - 不开放网页注册或找回密码；初始账号升级、新账号创建及忘记密码后的重置均通过本机交互式脚本完成。详见[第十三阶段说明](docs/第十三阶段-账号登录与数据隔离.md)
 
+第十四阶段的本机质量与运行能力已经实现：
+
+- 三个虚构案例可离线评估简历画像、岗位画像与匹配报告的结构、字面证据和评分一致性；真实模型评估仅在显式指定服务商后运行
+- Playwright 使用真实浏览器、临时 SQLite 和虚构账号，覆盖登录、TXT 解析、看板跨账号隔离和退出；普通单元测试默认跳过浏览器用例
+- 新增只读 `/ready` 数据库就绪检查、响应请求 ID 和不含查询参数/Cookie 的最小化访问日志
+- 提供本机限定端口的可选 Docker Compose 配置，但当前 Docker 引擎未运行，没有完成镜像构建或容器联调。详见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)
+
 ### 当前实现边界
 
-- 匹配分由大模型生成；后端检查范围、五个维度和权重总和，但尚未重新计算总分或逐字核验引用证据。
+- 匹配分由大模型生成；在线业务后端检查范围、五个维度和权重总和，但尚未重新计算总分或逐字核验引用证据。第十四阶段独立评估器可离线检查加权分和字面证据，不改变在线业务校验，也不能证明语义或事实正确。
 - 前端“查看与编辑”可回看旧投递快照；第九阶段可在资料库重新分析并新增独立报告，但不会替换旧投递采用的报告，也没有报告版本切换或对比。
 - 当前持久化使用 SQLAlchemy Core 和 MySQL，没有 Alembic 迁移；数据库自动化测试使用临时 SQLite。
 - 第五阶段自动生成稿只使用数据库里的结构化画像，不含原始简历/JD 全文；第六阶段允许人工编辑和保存，但系统不会核验人工填写的事实。确认时间只代表人工操作，不代表内容已被机器验证。
@@ -170,6 +177,7 @@
 - 第十一阶段的精简模板会省略部分事实，模板名不随人工版本单独保存；字面命中、人工片段关联和风险提示都不构成语义或事实核验。人工标注只适用于已授权留存原文的投递。
 - 第十二阶段的日程由用户自行录入，提醒只在网页打开或刷新时出现；面试提纲仅从已确认版本挑选复习线索，不能代替人工事实核对或面试准备。
 - 第十三阶段初始账号已认领原有资料；真实账号网页登录、写入及删除仍未验证。导出不含密码/API Key，也不等于可直接导入的备份；删除不会清除离线备份。
+- 第十四阶段未执行真实模型评估，浏览器测试不连接现有 MySQL；`/ready` 不是业务全链路检查。Docker 配置尚未实际运行，不代表公网生产部署；没有外部监控、告警或自动评估。
 - 各阶段说明中列出了更完整的实现限制与后续完善事项。
 
 ## 本地运行
@@ -179,7 +187,7 @@
 ```powershell
 cd D:\Agent\job-agent
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --no-access-log
 ```
 
 启动后可以访问：
@@ -187,6 +195,7 @@ cd D:\Agent\job-agent
 - 前端测试页面：`http://127.0.0.1:8000/upload`
 - 接口文档：`http://127.0.0.1:8000/docs`
 - 健康检查：`http://127.0.0.1:8000/health`
+- 数据库就绪检查：`http://127.0.0.1:8000/ready`（需已有账号及第十三阶段库结构）
 
 看板已保存记录可调用 `GET /api/applications/{id}/draft` 预览草稿；下载接口为 `GET /api/applications/{id}/draft/{resume|letter}.{docx|pdf}`。若 PDF 导出返回 503，可设置 `PDF_CJK_FONT_PATH` 指向中文 TTF/TTC 字体后重启应用；Windows 默认尝试系统自带中文字体。
 
@@ -514,6 +523,16 @@ cd D:\Agent\job-agent
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
+第十四阶段离线评估默认只处理虚构案例、不调用模型；浏览器测试需额外安装可选依赖并显式开启：
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m scripts.evaluate_outputs
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,e2e]"
+.\.venv\Scripts\python.exe -m pytest tests/test_browser_e2e.py --run-browser-e2e -q
+```
+
+真实模型评估需主动使用 `--live --provider openai` 或 `--live --provider deepseek`，可能产生费用；本轮未运行。容器部署前需要另行配置被 Git 忽略的 `.env.docker`，参见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)。
+
 ## 项目结构
 
 下面的应用和测试路径相对 `job-agent`；各阶段完整文件职责清单见上方文档索引。
@@ -537,6 +556,7 @@ app/core/config.py                 OpenAI、DeepSeek 和 MySQL 环境配置
 app/core/database_schema.py        十四张表、外键与索引定义
 app/core/request_auth.py           会话、同源和 CSRF 校验
 app/core/user_scope.py             当前请求账号上下文
+app/core/observability.py          请求 ID 与最小化访问日志
 app/api/auth.py                    登录、退出、个人数据导出和账号删除接口
 app/models/auth.py                 账号请求与响应模型
 app/models/candidate.py            候选人画像数据模型
@@ -566,6 +586,7 @@ app/services/llm.py               OpenAI 兼容模型客户端
 app/services/resume_analyzer.py   候选人画像分析服务
 app/services/job_analyzer.py      岗位描述分析服务
 app/services/match_analyzer.py    简历与岗位匹配服务
+app/services/evaluation.py        模型输出离线规则评估
 app/static/index.html             前端测试页面结构
 app/static/styles.css             前端页面样式与响应式布局
 app/static/app.js                 上传、画像、匹配、看板与定制材料交互
@@ -581,7 +602,14 @@ tests/test_stage_eleven.py        第十一阶段模板、人工关联与风险�
 tests/test_planning_api.py         第十二阶段日程、提醒和面试准备测试
 tests/test_auth_access.py          第十三阶段真实会话、跨账号与个人数据测试
 tests/test_password_reset.py       本机重置密码与会话撤销测试
-tests/conftest.py                  旧阶段测试专用模拟身份
+tests/test_evaluation.py           评估规则正反例与命令行默认行为测试
+tests/test_browser_e2e.py          真实浏览器登录、解析、隔离与退出测试
+tests/test_operational.py          数据库就绪检查与日志最小化测试
+tests/test_deployment_config.py    容器配置静态测试
+tests/conftest.py                  旧阶段模拟身份与浏览器测试显式开关
+evals/cases.json                   三个虚构离线评估案例
+Dockerfile / compose.yaml          可选本机容器运行配置
+.dockerignore / .env.docker.example 容器构建排除项与占位配置示例
 scripts/init_database.py         MySQL 完整增量初始化、回填及检查
 scripts/upgrade_draft_versions.py MySQL 只新增草稿版本表
 scripts/upgrade_application_sources.py MySQL 只新增原文留存表
@@ -592,6 +620,7 @@ scripts/upgrade_application_milestones.py MySQL 只新增投递日程表
 scripts/upgrade_user_access.py     初始账号创建及历史数据认领
 scripts/create_user.py             本机交互式创建后续空账号
 scripts/reset_user_password.py     本机交互式重置已有账号密码
+scripts/evaluate_outputs.py        离线或显式真实模型评估命令
 scripts/seed_applications.py     六条虚构测试记录的可重复导入
 tests/test_resume_api.py          简历上传接口测试
 tests/test_resume_analysis_api.py 候选人画像接口测试
@@ -675,6 +704,8 @@ cd D:\Agent\job-agent
 
 2026-10-28 本机密码重置脚本新增验证：完整自动化测试 **79 项通过**，Ruff 和差异空白检查通过。新增临时 SQLite 测试覆盖指定账号密码更新、该账号全部会话失效、其他账号保持有效、无效账号/短密码不修改数据，以及终端用户名二次确认；文档本地链接已核对。没有在真实 MySQL 上重置现有账号密码，也没有读取用户密码。
 
+2026-10-28 第十四阶段验证：普通自动化测试 **88 项通过、1 项按设计跳过**；另行显式启动的本机 Edge 浏览器端到端用例 **1 项通过**，使用临时 SQLite、虚构账号和本机随机端口，覆盖登录、TXT 解析、看板数据隔离与退出。三个虚构案例的离线模型输出评估 **3/3 通过**。Ruff 与差异空白检查通过。对现有真实 MySQL 只调用 `GET /ready`，返回 200 `{"status":"ready"}`；没有用真实账号网页登录、写入/删除数据或调用 OpenAI/DeepSeek。Docker 引擎未运行，容器配置仅做静态测试，未构建或启动镜像；没有公网部署或外部监控联调。
+
 ## 下一阶段
 
-下一步请用初始账号在 `/upload` 登录，确认能看到原有 7 条投递；随后推进第十四阶段的模型输出评估、浏览器端到端测试、部署与运行监控。当前没有语义级事实核验、一键投递或自动发送功能；后续投递辅助也不等于自动向招聘平台提交申请。
+建议先用初始账号在 `/upload` 人工登录，确认能看到原有 7 条投递；如需容器化，再启动 Docker 引擎并按[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)配置受限数据库账号，验证镜像与就绪探针。后续可扩充 PDF/DOCX、模型结果和材料下载的浏览器用例，增加更多人工审核过的评估案例及安全措施。当前没有语义级事实核验、一键投递或自动发送功能；投递辅助也不等于自动向招聘平台提交申请。

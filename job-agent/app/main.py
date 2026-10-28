@@ -3,9 +3,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy import func, select
 
 from app.api import applications
 from app.core import request_auth
+from app.core.database_schema import job_imports, users
+from app.core.observability import log_request
 from app.core.user_scope import bind_user, reset_user
 from fastapi.staticfiles import StaticFiles
 
@@ -47,6 +50,11 @@ async def require_api_login(request: Request, call_next):
         return response
     finally:
         reset_user(token)
+
+
+app.middleware("http")(log_request)
+
+
 app.include_router(resumes_router)
 app.include_router(auth_router)
 app.include_router(jobs_router)
@@ -66,3 +74,19 @@ def frontend() -> FileResponse:
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/ready", include_in_schema=False)
+def readiness_check() -> JSONResponse:
+    """只读检查数据库、账号和来源表结构；不返回连接信息。"""
+    try:
+        with applications.get_repository().engine.connect() as connection:
+            configured = connection.scalar(select(func.count()).select_from(users))
+            connection.execute(select(job_imports.c.user_id).limit(1))
+        if configured:
+            return JSONResponse({"status": "ready"}, headers={"Cache-Control": "no-store"})
+    except Exception:
+        # 连接或旧库结构异常均只暴露不可用状态，不泄露数据库地址或密码。
+        pass
+    return JSONResponse({"status": "unavailable"}, status_code=503,
+                        headers={"Cache-Control": "no-store"})

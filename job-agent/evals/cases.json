@@ -1,0 +1,68 @@
+[
+  {
+    "id": "resume_python_evidence",
+    "task": "resume",
+    "source_resume": "李宁，软件工程本科在读。熟悉 Python，使用 FastAPI 开发课程管理系统。",
+    "expected": {"skills": ["Python"], "min_evidence": 2},
+    "output": {
+      "basic_info": {"name": "李宁"},
+      "skills": [{"name": "Python", "category": "编程语言", "evidence": [{"quote": "熟悉 Python"}]}],
+      "projects": [{"name": "课程管理系统", "evidence": [{"quote": "使用 FastAPI 开发课程管理系统"}]}],
+      "warnings": []
+    }
+  },
+  {
+    "id": "job_python_evidence",
+    "task": "job",
+    "source_job": "星河科技招聘 Python 后端实习生。要求熟悉 Python 和 FastAPI，至少实习 3 个月。",
+    "expected": {"required_skills": ["Python", "FastAPI"], "min_requirements": 2},
+    "output": {
+      "title": "Python 后端实习生",
+      "company": "星河科技",
+      "required_skills": ["Python", "FastAPI"],
+      "internship_duration": "至少 3 个月",
+      "requirements": [
+        {"name": "Python", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"},
+        {"name": "FastAPI", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"}
+      ]
+    }
+  },
+  {
+    "id": "match_weighted_and_sources",
+    "task": "match",
+    "source_resume": "李宁，软件工程本科在读。熟悉 Python，使用 FastAPI 开发课程管理系统。",
+    "source_job": "星河科技招聘 Python 后端实习生。要求熟悉 Python 和 FastAPI，至少实习 3 个月。",
+    "candidate_profile": {
+      "basic_info": {"name": "李宁"},
+      "skills": [{"name": "Python", "category": "编程语言", "evidence": [{"quote": "熟悉 Python"}]}],
+      "projects": [{"name": "课程管理系统", "evidence": [{"quote": "使用 FastAPI 开发课程管理系统"}]}]
+    },
+    "job_profile": {
+      "title": "Python 后端实习生",
+      "company": "星河科技",
+      "required_skills": ["Python", "FastAPI"],
+      "requirements": [
+        {"name": "Python", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"},
+        {"name": "FastAPI", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"}
+      ]
+    },
+    "expected": {"recommendation": "谨慎投递", "requirements": ["Python", "FastAPI"], "score_tolerance": 5, "min_assessments": 2},
+    "output": {
+      "overall_score": 79,
+      "recommendation": "谨慎投递",
+      "summary": "技能与项目有一定对应，实习时间尚未确认。",
+      "dimensions": [
+        {"name": "技能匹配", "score": 85, "weight": 35, "reason": "Python 与 FastAPI 有字面证据"},
+        {"name": "项目经验", "score": 80, "weight": 25, "reason": "有课程项目"},
+        {"name": "教育背景", "score": 80, "weight": 15, "reason": "本科在读"},
+        {"name": "实习经历", "score": 60, "weight": 15, "reason": "没有明确的实习记录"},
+        {"name": "基本条件", "score": 80, "weight": 10, "reason": "到岗时间待确认"}
+      ],
+      "assessments": [
+        {"requirement": "Python", "status": "满足", "reason": "简历写明", "resume_evidence": ["熟悉 Python"], "job_evidence": "要求熟悉 Python 和 FastAPI"},
+        {"requirement": "FastAPI", "status": "满足", "reason": "项目写明", "resume_evidence": ["使用 FastAPI 开发课程管理系统"], "job_evidence": "要求熟悉 Python 和 FastAPI"}
+      ],
+      "warnings": ["实习到岗时间需人工确认"]
+    }
+  }
+]

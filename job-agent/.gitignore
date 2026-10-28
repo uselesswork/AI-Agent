@@ -5,7 +5,9 @@ __pycache__/
 .tmp/
 .ruff_cache/
 .env
+.env.docker
 *.db
+test-results/
 dist/
 build/
 *.egg-info/
