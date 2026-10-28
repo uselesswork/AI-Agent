@@ -10,6 +10,7 @@ from app.models.planning import (
     MilestoneCreate, MilestoneDetail, MilestoneUpdate, ReminderList, ReminderState,
 )
 from app.services.application_repository import ApplicationNotFoundError
+from app.services.ownership import owned_ids
 
 
 class MilestoneNotFoundError(LookupError):
@@ -58,7 +59,8 @@ class PlanningRepository:
 
     def _ensure_application(self, connection, application_id: int) -> None:
         exists = connection.scalar(select(applications_table.c.id).where(
-            applications_table.c.id == application_id))
+            applications_table.c.id == application_id,
+            applications_table.c.id.in_(owned_ids("application"))))
         if exists is None:
             raise ApplicationNotFoundError
 
@@ -78,6 +80,7 @@ class PlanningRepository:
         with self.engine.connect() as connection:
             row = connection.execute(self._statement().where(
                 application_milestones.c.application_id == application_id,
+                application_milestones.c.application_id.in_(owned_ids("application")),
                 application_milestones.c.id == milestone_id,
             )).mappings().first()
         if row is None:
@@ -111,6 +114,7 @@ class PlanningRepository:
             ).where(
                 application_milestones.c.id == milestone_id,
                 application_milestones.c.application_id == application_id,
+                application_milestones.c.application_id.in_(owned_ids("application")),
             ).with_for_update()).first()
             if row is None:
                 raise MilestoneNotFoundError
@@ -125,6 +129,7 @@ class PlanningRepository:
             result = connection.execute(delete(application_milestones).where(
                 application_milestones.c.id == milestone_id,
                 application_milestones.c.application_id == application_id,
+                application_milestones.c.application_id.in_(owned_ids("application")),
             ))
             if result.rowcount == 0:
                 raise MilestoneNotFoundError
@@ -136,6 +141,7 @@ class PlanningRepository:
             rows = connection.execute(self._statement().where(
                 application_milestones.c.completed_at.is_(None),
                 application_milestones.c.scheduled_at <= cutoff,
+                application_milestones.c.application_id.in_(owned_ids("application")),
             ).order_by(application_milestones.c.scheduled_at,
                        application_milestones.c.id).limit(101)).mappings().all()
         return ReminderList(items=[self._detail(row, now, days) for row in rows[:100]],

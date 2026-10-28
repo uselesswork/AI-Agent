@@ -12,7 +12,18 @@
     <script src="/static/app.js" defer></script>
   </head>
   <body>
-    <div class="page-shell">
+    <div class="auth-gate" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <form id="login-form" class="auth-card">
+        <p class="eyebrow">第十三阶段 · 账号访问控制</p>
+        <h1 id="auth-title">登录 AI 求职助手</h1>
+        <p>历史资料只对所属账号开放。初始账号需先在本机终端创建并认领旧数据。</p>
+        <label>用户名<input id="login-username" name="username" autocomplete="username" required minlength="3" maxlength="32" /></label>
+        <label>密码<input id="login-password" name="password" type="password" autocomplete="current-password" required /></label>
+        <button class="copy-button" type="submit">登录</button>
+        <p id="login-status" role="status">正在检查登录状态…</p>
+      </form>
+    </div>
+    <div class="page-shell" id="page-shell" inert>
       <header class="site-header">
         <a class="brand" href="/upload" aria-label="返回简历解析测试台首页">
           <span class="brand-mark" aria-hidden="true">JA</span>
@@ -22,8 +33,18 @@
           </span>
         </a>
         <div class="header-status">
-          <span class="status-dot" aria-hidden="true"></span>
-          文档解析服务
+          <div id="account-controls" class="account-controls is-hidden">
+            <span id="account-name"></span>
+            <a href="/api/auth/export" download="job-agent-personal-data.json">导出个人数据</a>
+            <button id="logout-button" class="text-button" type="button">退出登录</button>
+            <details class="account-danger">
+              <summary>删除我的账号和数据</summary>
+              <p>此操作不可恢复，建议先导出并核对 JSON 文件。</p>
+              <label>再次输入密码<input id="delete-account-password" type="password" autocomplete="current-password" /></label>
+              <button id="delete-account-button" class="text-button danger-button" type="button">永久删除</button>
+              <p id="account-status" role="status"></p>
+            </details>
+          </div>
         </div>
       </header>
 
@@ -378,7 +399,7 @@
       </main>
 
       <footer>
-          <span>AI 求职助手 · 第一至第十二阶段测试页面</span>
+          <span>AI 求职助手 · 第一至第十三阶段测试页面</span>
         <a href="/docs">打开接口文档</a>
       </footer>
     </div>

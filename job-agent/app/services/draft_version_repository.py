@@ -8,6 +8,7 @@ from app.models.draft_version import (
     DraftVersionCreate, DraftVersionDetail, DraftVersionSummary,
 )
 from app.services.application_repository import ApplicationNotFoundError
+from app.services.ownership import owned_ids
 
 
 class DraftVersionNotFoundError(LookupError):
@@ -23,7 +24,8 @@ class DraftVersionRepository:
         with self.engine.begin() as connection:
             # MySQL 按投递记录加锁，串行分配该记录的版本号。
             application = connection.execute(select(applications_table.c.id).where(
-                applications_table.c.id == application_id).with_for_update()).first()
+                applications_table.c.id == application_id,
+                applications_table.c.id.in_(owned_ids("application"))).with_for_update()).first()
             if application is None:
                 raise ApplicationNotFoundError
             last = connection.scalar(select(func.max(draft_versions.c.version)).where(
@@ -41,7 +43,8 @@ class DraftVersionRepository:
     def list(self, application_id: int) -> list[DraftVersionSummary]:
         with self.engine.connect() as connection:
             exists = connection.scalar(select(applications_table.c.id).where(
-                applications_table.c.id == application_id))
+                applications_table.c.id == application_id,
+                applications_table.c.id.in_(owned_ids("application"))))
             if exists is None:
                 raise ApplicationNotFoundError
             rows = connection.execute(select(
@@ -57,6 +60,7 @@ class DraftVersionRepository:
         with self.engine.connect() as connection:
             row = connection.execute(select(draft_versions).where(
                 draft_versions.c.application_id == application_id,
+                draft_versions.c.application_id.in_(owned_ids("application")),
                 draft_versions.c.version == version)).mappings().first()
         if row is None:
             raise DraftVersionNotFoundError
@@ -65,7 +69,8 @@ class DraftVersionRepository:
     def get_by_id(self, row_id: int) -> DraftVersionDetail:
         with self.engine.connect() as connection:
             row = connection.execute(select(draft_versions).where(
-                draft_versions.c.id == row_id)).mappings().one()
+                draft_versions.c.id == row_id,
+                draft_versions.c.application_id.in_(owned_ids("application")))).mappings().one()
         return self._detail(row)
 
     def confirm(self, application_id: int, version: int) -> DraftVersionDetail:
@@ -73,6 +78,7 @@ class DraftVersionRepository:
         with self.engine.begin() as connection:
             row = connection.execute(select(draft_versions).where(
                 draft_versions.c.application_id == application_id,
+                draft_versions.c.application_id.in_(owned_ids("application")),
                 draft_versions.c.version == version).with_for_update()).mappings().first()
             if row is None:
                 raise DraftVersionNotFoundError

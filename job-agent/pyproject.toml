@@ -34,6 +34,7 @@ app = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["auth_real: 使用真实账号会话和 CSRF 检查的认证测试"]
 
 [tool.ruff]
 line-length = 100

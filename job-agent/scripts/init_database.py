@@ -8,8 +8,9 @@ from sqlalchemy.schema import AddConstraint, CreateColumn
 from app.core.config import get_settings
 from app.core.database_schema import (
     application_events, application_sources, applications_table, draft_versions,
-    jobs, match_reports, metadata, resumes,
+    jobs, match_reports, metadata, resumes, users,
 )
+from app.core.user_scope import bind_user, reset_user
 from app.services.application_relations import add_event, attach_snapshot
 from scripts.seed_applications import seed, verify
 
@@ -77,24 +78,15 @@ def main():
     try:
         engine = create_engine(get_settings().validated_database_url(), pool_pre_ping=True,
                                connect_args={"connect_timeout": 10})
-        # 同一个初始化工具不允许并行执行。应用写入仍需在维护时段暂停。
-        with engine.connect() as lock:
-            acquired = lock.scalar(text("SELECT GET_LOCK('job_agent_schema_v2', 10)"))
-            if acquired != 1:
-                raise RuntimeError("无法获得初始化锁")
-            try:
-                upgrade_schema(engine)
-                migrated = backfill(engine)
-                inserted, skipped = seed(engine)
-                counts = verify_relations(engine)
-                samples = verify(engine)
-                print(f"旧记录关联回填 {migrated} 条；新增测试记录 {inserted} 条；跳过 {skipped} 条。")
-                for name, count in counts.items():
-                    print(f"{name}: {count}")
-                print(f"关联完整性检查通过，测试报告回读通过：{len(samples)} 条。")
-            finally:
-                lock.execute(text("SELECT RELEASE_LOCK('job_agent_schema_v2')"))
-        return 0
+        if "users" in inspect(engine).get_table_names():
+            with engine.connect() as connection:
+                if connection.scalar(select(func.count()).select_from(users)):
+                    raise ValueError("已启用账号；旧初始化脚本不再允许向共享库写入。")
+        token = bind_user(1)
+        try:
+            return _run_legacy_initialization(engine)
+        finally:
+            reset_user(token)
     except Exception as exc:
         original = getattr(exc, "orig", None)
         args = getattr(original, "args", ())
@@ -104,6 +96,27 @@ def main():
     finally:
         if engine is not None:
             engine.dispose()
+
+
+def _run_legacy_initialization(engine):
+    # 同一个初始化工具不允许并行执行。应用写入仍需在维护时段暂停。
+    with engine.connect() as lock:
+        acquired = lock.scalar(text("SELECT GET_LOCK('job_agent_schema_v2', 10)"))
+        if acquired != 1:
+            raise RuntimeError("无法获得初始化锁")
+        try:
+            upgrade_schema(engine)
+            migrated = backfill(engine)
+            inserted, skipped = seed(engine)
+            counts = verify_relations(engine)
+            samples = verify(engine)
+            print(f"旧记录关联回填 {migrated} 条；新增测试记录 {inserted} 条；跳过 {skipped} 条。")
+            for name, count in counts.items():
+                print(f"{name}: {count}")
+            print(f"关联完整性检查通过，测试报告回读通过：{len(samples)} 条。")
+        finally:
+            lock.execute(text("SELECT RELEASE_LOCK('job_agent_schema_v2')"))
+    return 0
 
 
 if __name__ == "__main__":

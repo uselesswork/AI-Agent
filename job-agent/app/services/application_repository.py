@@ -11,6 +11,7 @@ from app.core.database_schema import (
     match_reports, metadata,
 )
 from app.services.application_relations import add_event, attach_snapshot
+from app.services.ownership import is_owned, owned_ids, register_owner, remove_owner
 from app.models.application import (
     ApplicationCreate,
     ApplicationDetail,
@@ -29,7 +30,9 @@ class ApplicationNotFoundError(LookupError):
 class ApplicationRepository:
     def __init__(self, database_url: str) -> None:
         self.engine: Engine = create_engine(database_url, pool_pre_ping=True)
-        metadata.create_all(self.engine)
+        # 临时 SQLite 测试库自动建表；真实 MySQL 只允许显式升级脚本修改结构。
+        if self.engine.dialect.name == "sqlite":
+            metadata.create_all(self.engine)
 
     def create(self, data: ApplicationCreate) -> ApplicationDetail:
         now = datetime.now(UTC)
@@ -52,6 +55,7 @@ class ApplicationRepository:
                 values["applied_at"] = now
             result = connection.execute(insert(applications_table).values(**values))
             record_id = int(result.inserted_primary_key[0])
+            register_owner(connection, "application", record_id)
             if data.retain_source_text:
                 connection.execute(insert(application_sources).values(
                     application_id=record_id, resume_text=data.resume_text,
@@ -62,9 +66,8 @@ class ApplicationRepository:
 
     def get_source_status(self, record_id: int) -> bool:
         with self.engine.connect() as connection:
-            exists = connection.scalar(select(applications_table.c.id).where(
-                applications_table.c.id == record_id))
-            if exists is None:
+            exists = is_owned(connection, "application", record_id)
+            if not exists:
                 raise ApplicationNotFoundError
             source = connection.scalar(select(application_sources.c.application_id).where(
                 application_sources.c.application_id == record_id))
@@ -72,6 +75,8 @@ class ApplicationRepository:
 
     def get_sources(self, record_id: int) -> tuple[str, str] | None:
         with self.engine.connect() as connection:
+            if not is_owned(connection, "application", record_id):
+                raise ApplicationNotFoundError
             row = connection.execute(select(application_sources.c.resume_text,
                                             application_sources.c.job_description).where(
                 application_sources.c.application_id == record_id)).first()
@@ -79,9 +84,8 @@ class ApplicationRepository:
 
     def delete_sources(self, record_id: int) -> None:
         with self.engine.begin() as connection:
-            exists = connection.scalar(select(applications_table.c.id).where(
-                applications_table.c.id == record_id))
-            if exists is None:
+            exists = is_owned(connection, "application", record_id)
+            if not exists:
                 raise ApplicationNotFoundError
             connection.execute(delete(draft_annotations).where(
                 draft_annotations.c.application_id == record_id))
@@ -93,7 +97,8 @@ class ApplicationRepository:
         status: ApplicationStatus | None = None,
         sort: str = "updated_desc",
     ) -> list[ApplicationSummary]:
-        statement = select(applications_table)
+        statement = select(applications_table).where(
+            applications_table.c.id.in_(owned_ids("application")))
         if status:
             statement = statement.where(applications_table.c.status == status)
         with self.engine.connect() as connection:
@@ -114,7 +119,8 @@ class ApplicationRepository:
         source = source.outerjoin(
             match_reports, applications_table.c.match_report_id == match_reports.c.id,
         )
-        statement = select(applications_table).select_from(source)
+        statement = select(applications_table).select_from(source).where(
+            applications_table.c.id.in_(owned_ids("application")))
         if status:
             statement = statement.where(applications_table.c.status == status)
         if q:
@@ -151,9 +157,8 @@ class ApplicationRepository:
 
     def list_events(self, record_id: int) -> list[ApplicationEvent]:
         with self.engine.connect() as connection:
-            exists = connection.scalar(select(applications_table.c.id).where(
-                applications_table.c.id == record_id))
-            if exists is None:
+            exists = is_owned(connection, "application", record_id)
+            if not exists:
                 raise ApplicationNotFoundError
             rows = connection.execute(select(application_events).where(
                 application_events.c.application_id == record_id,
@@ -162,7 +167,9 @@ class ApplicationRepository:
         return [ApplicationEvent.model_validate(row) for row in rows]
 
     def get(self, record_id: int) -> ApplicationDetail:
-        statement = select(applications_table).where(applications_table.c.id == record_id)
+        statement = select(applications_table).where(
+            applications_table.c.id == record_id,
+            applications_table.c.id.in_(owned_ids("application")))
         with self.engine.connect() as connection:
             row = connection.execute(statement).mappings().first()
         if row is None:
@@ -188,7 +195,9 @@ class ApplicationRepository:
         changes["updated_at"] = datetime.now(UTC)
         with self.engine.begin() as connection:
             old = connection.execute(select(applications_table).where(
-                applications_table.c.id == record_id).with_for_update()).mappings().first()
+                applications_table.c.id == record_id,
+                applications_table.c.id.in_(owned_ids("application"))
+            ).with_for_update()).mappings().first()
             if old is None:
                 raise ApplicationNotFoundError
             target = changes.get("status", old["status"])
@@ -205,15 +214,20 @@ class ApplicationRepository:
             if "applied_at" in data.model_fields_set and new_date != old_date:
                 add_event(connection, record_id, "applied_at_changed", old["status"], target,
                           changes["updated_at"], "更新投递日期")
-            if "job_url" in changes and old["job_id"] is not None:
+            if "job_url" in changes and old["job_id"] is not None and is_owned(
+                    connection, "job", old["job_id"]):
                 connection.execute(update(jobs).where(jobs.c.id == old["job_id"]).values(
                     job_url=changes["job_url"], updated_at=changes["updated_at"]))
         return self.get(record_id)
 
     def delete(self, record_id: int) -> None:
-        statement = delete(applications_table).where(applications_table.c.id == record_id)
+        statement = delete(applications_table).where(
+            applications_table.c.id == record_id,
+            applications_table.c.id.in_(owned_ids("application")))
         with self.engine.begin() as connection:
             result = connection.execute(statement)
+            if result.rowcount:
+                remove_owner(connection, "application", record_id)
         if result.rowcount == 0:
             raise ApplicationNotFoundError
 

@@ -18,6 +18,7 @@ from app.models.library import (
     ResumeAsset, ResumeAssetCreate, ResumeAssetSaved,
 )
 from app.models.match import MatchResult
+from app.services.ownership import is_owned, owned_ids, owner_key, register_owner, remove_owner
 
 
 class AssetNotFoundError(LookupError):
@@ -49,19 +50,22 @@ class LibraryRepository:
 
     def save_resume(self, data: ResumeAssetCreate) -> ResumeAssetSaved:
         profile = data.profile.model_dump(mode="json")
-        key = _fingerprint(profile)
+        key = owner_key(_fingerprint(profile))
         try:
             with self.engine.begin() as connection:
-                record_id = connection.scalar(select(resumes.c.id).where(resumes.c.content_key == key))
+                record_id = connection.scalar(select(resumes.c.id).where(
+                    resumes.c.content_key == key, resumes.c.id.in_(owned_ids("resume"))))
                 created = record_id is None
                 if created:
                     record_id = connection.execute(insert(resumes).values(
                         content_key=key, filename=data.filename, raw_text=None,
                         candidate_profile=profile, created_at=datetime.now(UTC),
                     )).inserted_primary_key[0]
+                    register_owner(connection, "resume", record_id)
         except IntegrityError:
             with self.engine.connect() as connection:
-                record_id = connection.scalar(select(resumes.c.id).where(resumes.c.content_key == key))
+                record_id = connection.scalar(select(resumes.c.id).where(
+                    resumes.c.content_key == key, resumes.c.id.in_(owned_ids("resume"))))
             if record_id is None:
                 raise
             created = False
@@ -69,12 +73,14 @@ class LibraryRepository:
 
     def list_resumes(self) -> list[ResumeAsset]:
         with self.engine.connect() as connection:
-            rows = connection.execute(select(resumes).order_by(resumes.c.id.desc())).mappings().all()
+            rows = connection.execute(select(resumes).where(
+                resumes.c.id.in_(owned_ids("resume"))).order_by(resumes.c.id.desc())).mappings().all()
         return [self._resume(row) for row in rows]
 
     def get_resume(self, record_id: int) -> ResumeAsset:
         with self.engine.connect() as connection:
-            row = connection.execute(select(resumes).where(resumes.c.id == record_id)).mappings().first()
+            row = connection.execute(select(resumes).where(
+                resumes.c.id == record_id, resumes.c.id.in_(owned_ids("resume")))).mappings().first()
         if row is None:
             raise AssetNotFoundError
         return self._resume(row)
@@ -82,7 +88,7 @@ class LibraryRepository:
     def delete_resume(self, record_id: int) -> None:
         try:
             with self.engine.begin() as connection:
-                if connection.scalar(select(resumes.c.id).where(resumes.c.id == record_id)) is None:
+                if not is_owned(connection, "resume", record_id):
                     raise AssetNotFoundError
                 if (connection.scalar(select(match_reports.c.id).where(
                         match_reports.c.resume_id == record_id).limit(1)) is not None
@@ -90,6 +96,7 @@ class LibraryRepository:
                             applications_table.c.resume_id == record_id).limit(1)) is not None):
                     raise AssetInUseError
                 connection.execute(delete(resumes).where(resumes.c.id == record_id))
+                remove_owner(connection, "resume", record_id)
         except IntegrityError as exc:
             raise AssetInUseError from exc
 
@@ -97,9 +104,10 @@ class LibraryRepository:
         profile = data.profile.model_dump(mode="json")
         url = _normalized_url(data.job_url)
         key_source = f"url:{url}" if url else f"profile:{_fingerprint(profile)}"
-        key = f"library:{hashlib.sha256(key_source.encode('utf-8')).hexdigest()}"
+        key = f"library:{owner_key(key_source)}"
         with self.engine.begin() as connection:
-            rows = connection.execute(select(jobs.c.id, jobs.c.job_profile, jobs.c.job_url)).all()
+            rows = connection.execute(select(jobs.c.id, jobs.c.job_profile, jobs.c.job_url)
+                                      .where(jobs.c.id.in_(owned_ids("job")))).all()
             record_id = None
             for row in rows:
                 if url:
@@ -119,6 +127,7 @@ class LibraryRepository:
                     location=profile.get("location"), raw_description=None, job_profile=profile,
                     job_url=url, created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
                 )).inserted_primary_key[0]
+                register_owner(connection, "job", record_id)
             if data.favorite and connection.scalar(select(job_favorites.c.job_id).where(
                     job_favorites.c.job_id == record_id)) is None:
                 connection.execute(insert(job_favorites).values(
@@ -128,7 +137,8 @@ class LibraryRepository:
 
     def list_jobs(self, favorite_only: bool = False) -> list[JobAsset]:
         source = jobs.outerjoin(job_favorites, jobs.c.id == job_favorites.c.job_id)
-        statement = select(jobs, job_favorites.c.job_id.label("favorite_id")).select_from(source)
+        statement = select(jobs, job_favorites.c.job_id.label("favorite_id")).select_from(
+            source).where(jobs.c.id.in_(owned_ids("job")))
         if favorite_only:
             statement = statement.where(job_favorites.c.job_id.is_not(None))
         with self.engine.connect() as connection:
@@ -139,14 +149,16 @@ class LibraryRepository:
         source = jobs.outerjoin(job_favorites, jobs.c.id == job_favorites.c.job_id)
         with self.engine.connect() as connection:
             row = connection.execute(select(jobs, job_favorites.c.job_id.label("favorite_id"))
-                                     .select_from(source).where(jobs.c.id == record_id)).mappings().first()
+                                     .select_from(source).where(
+                                         jobs.c.id == record_id,
+                                         jobs.c.id.in_(owned_ids("job")))).mappings().first()
         if row is None:
             raise AssetNotFoundError
         return self._job(row)
 
     def set_favorite(self, record_id: int, favorite: bool) -> JobAsset:
         with self.engine.begin() as connection:
-            if connection.scalar(select(jobs.c.id).where(jobs.c.id == record_id)) is None:
+            if not is_owned(connection, "job", record_id):
                 raise AssetNotFoundError
             old = connection.scalar(select(job_favorites.c.job_id).where(
                 job_favorites.c.job_id == record_id))
@@ -161,7 +173,7 @@ class LibraryRepository:
     def delete_job(self, record_id: int) -> None:
         try:
             with self.engine.begin() as connection:
-                if connection.scalar(select(jobs.c.id).where(jobs.c.id == record_id)) is None:
+                if not is_owned(connection, "job", record_id):
                     raise AssetNotFoundError
                 if (connection.scalar(select(match_reports.c.id).where(
                         match_reports.c.job_id == record_id).limit(1)) is not None
@@ -169,13 +181,15 @@ class LibraryRepository:
                             applications_table.c.job_id == record_id).limit(1)) is not None):
                     raise AssetInUseError
                 connection.execute(delete(jobs).where(jobs.c.id == record_id))
+                remove_owner(connection, "job", record_id)
         except IntegrityError as exc:
             raise AssetInUseError from exc
 
     def list_reports(self, resume_id: int | None, job_id: int | None) -> list[ReportSummary]:
         source = match_reports.join(resumes, match_reports.c.resume_id == resumes.c.id)
         source = source.join(jobs, match_reports.c.job_id == jobs.c.id)
-        statement = self._report_statement(source)
+        statement = self._report_statement(source).where(
+            match_reports.c.id.in_(owned_ids("report")))
         if resume_id is not None:
             statement = statement.where(match_reports.c.resume_id == resume_id)
         if job_id is not None:
@@ -192,7 +206,8 @@ class LibraryRepository:
         source = source.join(jobs, match_reports.c.job_id == jobs.c.id)
         with self.engine.connect() as connection:
             row = connection.execute(self._report_statement(source)
-                                     .where(match_reports.c.id == record_id))\
+                                     .where(match_reports.c.id == record_id,
+                                            match_reports.c.id.in_(owned_ids("report"))))\
                 .mappings().first()
         if row is None:
             raise AssetNotFoundError
@@ -202,8 +217,8 @@ class LibraryRepository:
                     provider: str, model: str) -> ReportDetail:
         try:
             with self.engine.begin() as connection:
-                if (connection.scalar(select(resumes.c.id).where(resumes.c.id == resume_id)) is None
-                        or connection.scalar(select(jobs.c.id).where(jobs.c.id == job_id)) is None):
+                if (not is_owned(connection, "resume", resume_id)
+                        or not is_owned(connection, "job", job_id)):
                     raise AssetNotFoundError
                 record_id = connection.execute(insert(match_reports).values(
                     source_key=f"reanalyze:{uuid4().hex}", resume_id=resume_id, job_id=job_id,
@@ -211,6 +226,7 @@ class LibraryRepository:
                     result=result.model_dump(mode="json"), provider=provider, model=model,
                     created_at=datetime.now(UTC),
                 )).inserted_primary_key[0]
+                register_owner(connection, "report", record_id)
         except IntegrityError as exc:
             raise AssetNotFoundError from exc
         return self.get_report(int(record_id))

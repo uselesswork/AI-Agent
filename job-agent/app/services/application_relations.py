@@ -6,6 +6,7 @@ import json
 from sqlalchemy import insert, select
 
 from app.core.database_schema import application_events, jobs, match_reports, resumes
+from app.services.ownership import owned_ids, owner_key, register_owner
 
 
 def attach_snapshot(connection, values: dict, source_key: str) -> dict:
@@ -13,13 +14,17 @@ def attach_snapshot(connection, values: dict, source_key: str) -> dict:
     fingerprint = hashlib.sha256(json.dumps(
         profile, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")).hexdigest()
-    resume_id = connection.scalar(select(resumes.c.id).where(resumes.c.content_key == fingerprint))
+    fingerprint = owner_key(fingerprint)
+    resume_id = connection.scalar(select(resumes.c.id).where(
+        resumes.c.content_key == fingerprint, resumes.c.id.in_(owned_ids("resume"))))
     if resume_id is None:
         resume_id = connection.execute(insert(resumes).values(
             content_key=fingerprint, filename=values["resume_filename"],
             candidate_profile=profile, raw_text=None, created_at=values["created_at"],
         )).inserted_primary_key[0]
-    job_id = connection.scalar(select(jobs.c.id).where(jobs.c.source_key == source_key))
+        register_owner(connection, "resume", resume_id)
+    job_id = connection.scalar(select(jobs.c.id).where(
+        jobs.c.source_key == source_key, jobs.c.id.in_(owned_ids("job"))))
     if job_id is None:
         job = values["job_profile"]
         job_id = connection.execute(insert(jobs).values(
@@ -28,8 +33,10 @@ def attach_snapshot(connection, values: dict, source_key: str) -> dict:
             job_url=values["job_url"], created_at=values["created_at"],
             updated_at=values["updated_at"],
         )).inserted_primary_key[0]
+        register_owner(connection, "job", job_id)
     report_id = connection.scalar(select(match_reports.c.id).where(
-        match_reports.c.source_key == source_key))
+        match_reports.c.source_key == source_key,
+        match_reports.c.id.in_(owned_ids("report"))))
     if report_id is None:
         result = values["match_result"]
         report_id = connection.execute(insert(match_reports).values(
@@ -38,6 +45,7 @@ def attach_snapshot(connection, values: dict, source_key: str) -> dict:
             result=result, provider=values["provider"], model=values["model"],
             created_at=values["created_at"],
         )).inserted_primary_key[0]
+        register_owner(connection, "report", report_id)
     return {"resume_id": resume_id, "job_id": job_id, "match_report_id": report_id}
 
 

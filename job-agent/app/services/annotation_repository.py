@@ -7,6 +7,7 @@ from sqlalchemy.engine import Engine
 
 from app.core.database_schema import draft_annotations, draft_versions
 from app.models.annotation import AnnotationDetail, AnnotationWrite
+from app.services.ownership import owned_ids
 
 
 class AnnotationRepository:
@@ -17,6 +18,7 @@ class AnnotationRepository:
         with self.engine.connect() as connection:
             rows = connection.execute(select(draft_annotations).where(
                 draft_annotations.c.version_id == version_id,
+                draft_annotations.c.application_id.in_(owned_ids("application")),
             ).order_by(draft_annotations.c.id)).mappings().all()
         return [AnnotationDetail.model_validate(row) for row in rows]
 
@@ -31,8 +33,13 @@ class AnnotationRepository:
         )
         with self.engine.begin() as connection:
             # 同一版本的标注请求串行化，避免两次创建同一行时撞唯一约束。
-            connection.execute(select(draft_versions.c.id).where(
-                draft_versions.c.id == version_id).with_for_update()).first()
+            owned_version = connection.execute(select(draft_versions.c.id).where(
+                draft_versions.c.id == version_id,
+                draft_versions.c.application_id == application_id,
+                draft_versions.c.application_id.in_(owned_ids("application")),
+            ).with_for_update()).first()
+            if owned_version is None:
+                raise ValueError("草稿版本不存在或不属于当前用户。")
             row_id = connection.scalar(select(draft_annotations.c.id).where(*locator))
             values = dict(source_kind=data.source_kind,
                           source_quote=data.source_quote.strip(), note=data.note.strip(),
@@ -57,6 +64,7 @@ class AnnotationRepository:
         with self.engine.begin() as connection:
             connection.execute(delete(draft_annotations).where(
                 draft_annotations.c.version_id == version_id,
+                draft_annotations.c.application_id.in_(owned_ids("application")),
                 draft_annotations.c.document == document,
                 draft_annotations.c.section_index == section_index,
                 draft_annotations.c.line_index == line_index,

@@ -730,6 +730,19 @@ a {
 .application-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .application-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #faf9f4; }
 .application-card.draft-open, .application-card.schedule-open { grid-column: 1 / -1; }
+.auth-gate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(22, 34, 31, .86); }
+.auth-gate.is-hidden { display: none; }
+.auth-card { width: min(100%, 430px); display: grid; gap: 13px; padding: 30px; border-radius: 20px; background: white; box-shadow: var(--shadow); }
+.auth-card h1 { margin: 0; font-size: 22px; }
+.auth-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.auth-card label, .account-danger label { display: grid; gap: 5px; font-size: 11px; }
+.auth-card input, .account-danger input { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 9px; font: inherit; }
+.account-controls { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; font-size: 10px; }
+.account-controls a { color: var(--green); }
+.account-danger { position: relative; }
+.account-danger[open] { padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.account-danger summary { cursor: pointer; color: var(--danger); }
+.account-danger p { font-size: 10px; }
 .application-card-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
 .application-company { display: block; margin-bottom: 7px; color: var(--green); font-size: 9px; font-weight: 800; }
 .application-card h3 { margin: 0; font-size: 14px; }

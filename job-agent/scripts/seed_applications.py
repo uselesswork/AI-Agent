@@ -2,13 +2,15 @@
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import create_engine, insert, select
+from sqlalchemy import create_engine, func, insert, inspect, select
 from sqlalchemy.engine import Engine
 
 from app.core.config import get_settings
 from app.models.application import ApplicationCreate, ApplicationDetail
 from app.services.application_repository import applications_table, metadata
 from app.services.application_relations import add_event, attach_snapshot
+from app.core.database_schema import users
+from app.core.user_scope import bind_user, reset_user
 
 MARKER = "board-demo-v1"
 DIMENSIONS = [("技能匹配", 35), ("项目经验", 25), ("教育背景", 15),
@@ -129,7 +131,15 @@ def main() -> int:
     try:
         url = get_settings().validated_database_url()
         engine = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 10})
-        inserted, skipped = seed(engine)
+        if "users" in inspect(engine).get_table_names():
+            with engine.connect() as connection:
+                if connection.scalar(select(func.count()).select_from(users)):
+                    raise ValueError("已启用账号；旧测试数据脚本不再允许向共享库写入。")
+        token = bind_user(1)
+        try:
+            inserted, skipped = seed(engine)
+        finally:
+            reset_user(token)
         print(f"新增 {inserted} 条，跳过已有 {skipped} 条。")
         rows = verify(engine)
         print(f"数据库回读及完整结构校验通过：{len(rows)} 条测试记录。")

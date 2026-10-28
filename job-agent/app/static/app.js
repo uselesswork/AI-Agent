@@ -1,5 +1,101 @@
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["pdf", "docx", "txt"]);
+const nativeFetch = window.fetch.bind(window);
+let csrfToken = "";
+let resolveAuthReady;
+const authReady = new Promise((resolve) => { resolveAuthReady = resolve; });
+
+window.fetch = async (input, options = {}) => {
+  const url = typeof input === "string" ? input : input.url;
+  if (!url.startsWith("/api/")) return nativeFetch(input, options);
+  await authReady;
+  const method = (options.method || (typeof input === "string" ? "GET" : input.method)).toUpperCase();
+  const headers = new Headers(options.headers);
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) headers.set("X-CSRF-Token", csrfToken);
+  const response = await nativeFetch(input, { ...options, headers, credentials: "same-origin" });
+  if (response.status === 401 && !url.startsWith("/api/auth/")) window.location.reload();
+  return response;
+};
+
+const authGate = document.querySelector("#auth-gate");
+const pageShell = document.querySelector("#page-shell");
+const loginForm = document.querySelector("#login-form");
+const loginStatus = document.querySelector("#login-status");
+const loginUsername = document.querySelector("#login-username");
+const loginPassword = document.querySelector("#login-password");
+const accountControls = document.querySelector("#account-controls");
+const accountName = document.querySelector("#account-name");
+const accountStatus = document.querySelector("#account-status");
+const deleteAccountPassword = document.querySelector("#delete-account-password");
+
+function activateAccount(account) {
+  csrfToken = account.csrf_token;
+  accountName.textContent = `当前账号：${account.username}`;
+  accountControls.classList.remove("is-hidden");
+  authGate.classList.add("is-hidden");
+  pageShell.removeAttribute("inert");
+  loginPassword.value = "";
+  resolveAuthReady();
+}
+
+async function initializeAccount() {
+  try {
+    const response = await nativeFetch("/api/auth/me", { credentials: "same-origin" });
+    if (response.ok) { activateAccount(await response.json()); return; }
+    const status = await nativeFetch("/api/auth/status");
+    const data = await status.json();
+    loginStatus.textContent = data.configured
+      ? "请使用本机创建的账号登录。"
+      : "尚无初始账号：请按 README 在本机终端运行账号升级脚本。";
+  } catch (error) {
+    loginStatus.textContent = "无法检查登录状态，请确认后端和数据库已启动。";
+  }
+}
+
+loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  loginStatus.textContent = "正在登录…";
+  try {
+    const response = await nativeFetch("/api/auth/login", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: loginUsername.value.trim(), password: loginPassword.value }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "登录失败。");
+    activateAccount(data);
+  } catch (error) {
+    loginPassword.value = "";
+    loginStatus.textContent = error.message || "登录失败。";
+  }
+});
+
+document.querySelector("#logout-button").addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    if (!response.ok) throw new Error("退出失败，请重试。 ");
+    window.location.reload();
+  } catch (error) { accountStatus.textContent = error.message; }
+});
+
+document.querySelector("#delete-account-button").addEventListener("click", async () => {
+  if (!window.confirm("将永久删除此账号拥有的投递、画像、报告、原文、草稿与日程。建议先导出并核对备份。确定继续吗？")) return;
+  accountStatus.textContent = "正在删除…";
+  try {
+    const response = await fetch("/api/auth/delete", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: deleteAccountPassword.value, confirmed: true }),
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(typeof data.detail === "string" ? data.detail : "删除失败。");
+    }
+    deleteAccountPassword.value = "";
+    window.location.reload();
+  } catch (error) { accountStatus.textContent = error.message; }
+});
+
+initializeAccount();
 
 const fileInput = document.querySelector("#resume-file");
 const dropZone = document.querySelector("#drop-zone");

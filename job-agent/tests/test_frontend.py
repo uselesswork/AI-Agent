@@ -17,7 +17,10 @@ def test_frontend_page_is_available() -> None:
     assert "粘贴岗位描述" in response.text
     assert "简历与岗位匹配度" in response.text
     assert "我的求职看板" in response.text
-    assert "第一至第十二阶段" in response.text
+    assert "第一至第十三阶段" in response.text
+    assert 'id="auth-gate"' in response.text
+    assert 'id="login-form"' in response.text
+    assert 'id="account-controls"' in response.text
     assert 'id="reminder-list"' in response.text
     assert 'id="refresh-reminders"' in response.text
     assert "逐行添加人工来源关联" in response.text
@@ -65,6 +68,9 @@ def test_frontend_assets_are_available() -> None:
     assert "管理日程" in js_response.text
     assert "生成面试准备提纲" in js_response.text
     assert "/api/planning" in js_response.text
+    assert "/api/auth/me" in js_response.text
+    assert "X-CSRF-Token" in js_response.text
+    assert "/api/auth/delete" in js_response.text
     assert "比较两个版本" in js_response.text
     assert "/api/applications/search?" in js_response.text
     assert "/events" in js_response.text

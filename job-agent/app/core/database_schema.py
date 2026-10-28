@@ -1,4 +1,4 @@
-"""十一表结构；applications 的旧快照字段保留以兼容现有接口。"""
+"""第十三阶段新增账号与归属表；旧投递快照字段保留。"""
 
 from sqlalchemy import (
     JSON, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
@@ -7,6 +7,34 @@ from sqlalchemy import (
 from sqlalchemy.dialects.mysql import LONGTEXT
 
 metadata = MetaData()
+
+users = Table(
+    "users", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("username", String(32), nullable=False, unique=True),
+    Column("password_hash", String(255), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    mysql_charset="utf8mb4",
+)
+
+auth_sessions = Table(
+    "auth_sessions", metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"),
+           nullable=False, index=True),
+    Column("csrf_token", String(64), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    mysql_charset="utf8mb4",
+)
+
+user_assets = Table(
+    "user_assets", metadata,
+    Column("entity_type", String(20), primary_key=True),
+    Column("entity_id", Integer, primary_key=True),
+    Column("user_id", Integer, nullable=False, index=True),
+    mysql_charset="utf8mb4",
+)
 
 resumes = Table(
     "resumes", metadata,
@@ -46,12 +74,14 @@ job_imports = Table(
     Column("id", Integer, primary_key=True),
     Column("job_id", Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False,
            index=True),
+    Column("user_id", Integer, nullable=False, index=True),
     Column("source", String(20), nullable=False),
     Column("board_token", String(100), nullable=False),
     Column("external_id", String(100), nullable=False),
     Column("source_url", String(2000), nullable=False),
     Column("imported_at", DateTime(timezone=True), nullable=False),
-    UniqueConstraint("source", "board_token", "external_id", name="uq_job_import_source"),
+    UniqueConstraint("user_id", "source", "board_token", "external_id",
+                     name="uq_job_import_source_owner"),
     mysql_charset="utf8mb4",
 )
 
