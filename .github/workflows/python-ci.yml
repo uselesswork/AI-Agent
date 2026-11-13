@@ -1,0 +1,41 @@
+name: Python CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-only-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      MYSQL_TEST_ADMIN_URL: mysql+pymysql://root:ci-only-password@127.0.0.1:3306/mysql?charset=utf8mb4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install project and test dependencies
+        working-directory: job-agent
+        run: python -m pip install -e '.[dev]'
+      - name: Ruff
+        working-directory: job-agent
+        run: ruff check .
+      - name: SQLite and API tests
+        working-directory: job-agent
+        run: python -m pytest -q
+      - name: Isolated MySQL integration test
+        working-directory: job-agent
+        run: python -m pytest tests/test_mysql_integration.py --run-mysql-integration -q
