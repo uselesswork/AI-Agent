@@ -5,7 +5,9 @@ import asyncio
 import json
 import re
 from pathlib import Path
+from time import perf_counter
 
+from app.core.config import get_settings
 from app.models.candidate import CandidateProfile
 from app.models.job import JobProfile
 from app.services.evaluation import evaluate_case
@@ -46,6 +48,27 @@ def load_cases(path: Path) -> list[dict]:
     return data
 
 
+def summarize_results(results: list[dict]) -> dict:
+    """只汇总规则检查，不把离线夹具通过率称为模型准确率。"""
+    checks = [check for result in results for check in result["checks"]]
+
+    def rate(names: set[str]) -> str:
+        selected = [check for check in checks if check["name"] in names]
+        return f"{sum(check['passed'] for check in selected)}/{len(selected)}" if selected else "无样本"
+
+    hard_names = {"expected_required_skills", "no_unsupported_required_skills",
+                  "expected_job_requirements", "expected_requirements",
+                  "expected_assessment_statuses"}
+    return {
+        "structure": rate({"schema_valid"}),
+        "evidence": rate({"resume_evidence_literal", "job_evidence_literal",
+                          "match_resume_evidence_literal", "match_job_evidence_literal"}),
+        "hard_condition_misses": sum(not check["passed"] for check in checks
+                                     if check["name"] in hard_names),
+        "score_consistency": rate({"weighted_score_near_overall"}),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="用虚构案例检查模型输出结构与字面证据。")
     parser.add_argument("--file", type=Path, default=DEFAULT_CASES, help="用例 JSON 路径")
@@ -61,6 +84,7 @@ def main() -> int:
         return 2
     results = []
     for case in cases:
+        started = perf_counter() if args.live else None
         try:
             output = asyncio.run(generate_live(case, args.provider)) if args.live else case["output"]
             result = evaluate_case(case, output)
@@ -72,8 +96,18 @@ def main() -> int:
         failed = [item["name"] for item in result["checks"] if not item["passed"]]
         print(f"{result['id']}: {'通过' if result['passed'] else '未通过'}"
               + (f"；检查项：{', '.join(failed)}" if failed else ""))
+        if started is not None:
+            print(f"  耗时：{perf_counter() - started:.2f} 秒")
     passed = sum(item["passed"] for item in results)
+    summary = summarize_results(results)
     print(f"合计：{passed}/{len(results)} 通过；模式：{'真实模型' if args.live else '离线夹具'}。")
+    print(f"结构通过：{summary['structure']}；字面证据检查：{summary['evidence']}；"
+          f"硬性条件漏判检查失败：{summary['hard_condition_misses']}；"
+          f"评分一致性：{summary['score_consistency']}。")
+    if args.live:
+        settings = get_settings()
+        model = settings.openai_model if args.provider == "openai" else settings.deepseek_model
+        print(f"模型：{args.provider}/{model}；费用估算：不可用（当前客户端未返回用量）。")
     return 0 if passed == len(results) else 1
 
 

@@ -3,28 +3,83 @@
     "id": "resume_python_evidence",
     "task": "resume",
     "source_resume": "李宁，软件工程本科在读。熟悉 Python，使用 FastAPI 开发课程管理系统。",
-    "expected": {"skills": ["Python"], "min_evidence": 2},
+    "expected": {
+      "skills": [
+        "Python"
+      ],
+      "min_evidence": 2
+    },
     "output": {
-      "basic_info": {"name": "李宁"},
-      "skills": [{"name": "Python", "category": "编程语言", "evidence": [{"quote": "熟悉 Python"}]}],
-      "projects": [{"name": "课程管理系统", "evidence": [{"quote": "使用 FastAPI 开发课程管理系统"}]}],
+      "basic_info": {
+        "name": "李宁"
+      },
+      "skills": [
+        {
+          "name": "Python",
+          "category": "编程语言",
+          "evidence": [
+            {
+              "quote": "熟悉 Python"
+            }
+          ]
+        }
+      ],
+      "projects": [
+        {
+          "name": "课程管理系统",
+          "evidence": [
+            {
+              "quote": "使用 FastAPI 开发课程管理系统"
+            }
+          ]
+        }
+      ],
       "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "原有基础场景",
+      "record": "2026-11-18 规则复跑；人工语义复核待完成"
     }
   },
   {
     "id": "job_python_evidence",
     "task": "job",
     "source_job": "星河科技招聘 Python 后端实习生。要求熟悉 Python 和 FastAPI，至少实习 3 个月。",
-    "expected": {"required_skills": ["Python", "FastAPI"], "min_requirements": 2},
+    "expected": {
+      "required_skills": [
+        "Python",
+        "FastAPI"
+      ],
+      "min_requirements": 2
+    },
     "output": {
       "title": "Python 后端实习生",
       "company": "星河科技",
-      "required_skills": ["Python", "FastAPI"],
+      "required_skills": [
+        "Python",
+        "FastAPI"
+      ],
       "internship_duration": "至少 3 个月",
       "requirements": [
-        {"name": "Python", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"},
-        {"name": "FastAPI", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"}
+        {
+          "name": "Python",
+          "category": "技能",
+          "importance": "必须",
+          "evidence": "要求熟悉 Python 和 FastAPI"
+        },
+        {
+          "name": "FastAPI",
+          "category": "技能",
+          "importance": "必须",
+          "evidence": "要求熟悉 Python 和 FastAPI"
+        }
       ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "原有基础场景",
+      "record": "2026-11-18 规则复跑；人工语义复核待完成"
     }
   },
   {
@@ -33,36 +88,907 @@
     "source_resume": "李宁，软件工程本科在读。熟悉 Python，使用 FastAPI 开发课程管理系统。",
     "source_job": "星河科技招聘 Python 后端实习生。要求熟悉 Python 和 FastAPI，至少实习 3 个月。",
     "candidate_profile": {
-      "basic_info": {"name": "李宁"},
-      "skills": [{"name": "Python", "category": "编程语言", "evidence": [{"quote": "熟悉 Python"}]}],
-      "projects": [{"name": "课程管理系统", "evidence": [{"quote": "使用 FastAPI 开发课程管理系统"}]}]
+      "basic_info": {
+        "name": "李宁"
+      },
+      "skills": [
+        {
+          "name": "Python",
+          "category": "编程语言",
+          "evidence": [
+            {
+              "quote": "熟悉 Python"
+            }
+          ]
+        }
+      ],
+      "projects": [
+        {
+          "name": "课程管理系统",
+          "evidence": [
+            {
+              "quote": "使用 FastAPI 开发课程管理系统"
+            }
+          ]
+        }
+      ]
     },
     "job_profile": {
       "title": "Python 后端实习生",
       "company": "星河科技",
-      "required_skills": ["Python", "FastAPI"],
+      "required_skills": [
+        "Python",
+        "FastAPI"
+      ],
       "requirements": [
-        {"name": "Python", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"},
-        {"name": "FastAPI", "category": "技能", "importance": "必须", "evidence": "要求熟悉 Python 和 FastAPI"}
+        {
+          "name": "Python",
+          "category": "技能",
+          "importance": "必须",
+          "evidence": "要求熟悉 Python 和 FastAPI"
+        },
+        {
+          "name": "FastAPI",
+          "category": "技能",
+          "importance": "必须",
+          "evidence": "要求熟悉 Python 和 FastAPI"
+        }
       ]
     },
-    "expected": {"recommendation": "谨慎投递", "requirements": ["Python", "FastAPI"], "score_tolerance": 5, "min_assessments": 2},
+    "expected": {
+      "recommendation": "谨慎投递",
+      "requirements": [
+        "Python",
+        "FastAPI"
+      ],
+      "score_tolerance": 5,
+      "min_assessments": 2
+    },
     "output": {
       "overall_score": 79,
       "recommendation": "谨慎投递",
       "summary": "技能与项目有一定对应，实习时间尚未确认。",
       "dimensions": [
-        {"name": "技能匹配", "score": 85, "weight": 35, "reason": "Python 与 FastAPI 有字面证据"},
-        {"name": "项目经验", "score": 80, "weight": 25, "reason": "有课程项目"},
-        {"name": "教育背景", "score": 80, "weight": 15, "reason": "本科在读"},
-        {"name": "实习经历", "score": 60, "weight": 15, "reason": "没有明确的实习记录"},
-        {"name": "基本条件", "score": 80, "weight": 10, "reason": "到岗时间待确认"}
+        {
+          "name": "技能匹配",
+          "score": 85,
+          "weight": 35,
+          "reason": "Python 与 FastAPI 有字面证据"
+        },
+        {
+          "name": "项目经验",
+          "score": 80,
+          "weight": 25,
+          "reason": "有课程项目"
+        },
+        {
+          "name": "教育背景",
+          "score": 80,
+          "weight": 15,
+          "reason": "本科在读"
+        },
+        {
+          "name": "实习经历",
+          "score": 60,
+          "weight": 15,
+          "reason": "没有明确的实习记录"
+        },
+        {
+          "name": "基本条件",
+          "score": 80,
+          "weight": 10,
+          "reason": "到岗时间待确认"
+        }
       ],
       "assessments": [
-        {"requirement": "Python", "status": "满足", "reason": "简历写明", "resume_evidence": ["熟悉 Python"], "job_evidence": "要求熟悉 Python 和 FastAPI"},
-        {"requirement": "FastAPI", "status": "满足", "reason": "项目写明", "resume_evidence": ["使用 FastAPI 开发课程管理系统"], "job_evidence": "要求熟悉 Python 和 FastAPI"}
+        {
+          "requirement": "Python",
+          "status": "满足",
+          "reason": "简历写明",
+          "resume_evidence": [
+            "熟悉 Python"
+          ],
+          "job_evidence": "要求熟悉 Python 和 FastAPI"
+        },
+        {
+          "requirement": "FastAPI",
+          "status": "满足",
+          "reason": "项目写明",
+          "resume_evidence": [
+            "使用 FastAPI 开发课程管理系统"
+          ],
+          "job_evidence": "要求熟悉 Python 和 FastAPI"
+        }
       ],
-      "warnings": ["实习到岗时间需人工确认"]
+      "warnings": [
+        "实习到岗时间需人工确认"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "原有基础场景",
+      "record": "2026-11-18 规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_missing_contact",
+    "task": "resume",
+    "source_resume": "匿名候选人。掌握 Python，完成数据清洗练习。未提供邮箱或电话。",
+    "expected": {
+      "skills": [
+        "Python"
+      ],
+      "absent_skills": [
+        "Java"
+      ],
+      "min_evidence": 1
+    },
+    "output": {
+      "basic_info": {
+        "name": null,
+        "email": null,
+        "phone": null
+      },
+      "skills": [
+        {
+          "name": "Python",
+          "category": "编程语言",
+          "evidence": [
+            {
+              "quote": "掌握 Python"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "联系方式缺失"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "联系方式缺失",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_course_not_work",
+    "task": "resume",
+    "source_resume": "软件工程学生。数据库课程使用 SQL 完成图书借阅系统；无企业实习经历。",
+    "expected": {
+      "skills": [
+        "SQL"
+      ],
+      "absent_skills": [
+        "MySQL"
+      ],
+      "min_evidence": 2
+    },
+    "output": {
+      "skills": [
+        {
+          "name": "SQL",
+          "category": "数据库",
+          "evidence": [
+            {
+              "quote": "使用 SQL"
+            }
+          ]
+        }
+      ],
+      "projects": [
+        {
+          "name": "图书借阅系统",
+          "evidence": [
+            {
+              "quote": "完成图书借阅系统"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "未见企业实习经历"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "课程项目与工作经历区分",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_multiline_text",
+    "task": "resume",
+    "source_resume": "项目经历：\n校园地图小程序\n使用 TypeScript 开发前端页面。\n参与测试。",
+    "expected": {
+      "skills": [
+        "TypeScript"
+      ],
+      "min_evidence": 2
+    },
+    "output": {
+      "skills": [
+        {
+          "name": "TypeScript",
+          "category": "编程语言",
+          "evidence": [
+            {
+              "quote": "使用 TypeScript 开发前端页面"
+            }
+          ]
+        }
+      ],
+      "projects": [
+        {
+          "name": "校园地图小程序",
+          "evidence": [
+            {
+              "quote": "校园地图小程序"
+            }
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "跨行纯文本与证据",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_ambiguous_java",
+    "task": "resume",
+    "source_resume": "曾赴 Java 岛参加交流活动，课程项目使用 Python。未描述 Java 编程。",
+    "expected": {
+      "skills": [
+        "Python"
+      ],
+      "absent_skills": [
+        "Java"
+      ],
+      "min_evidence": 1
+    },
+    "output": {
+      "skills": [
+        {
+          "name": "Python",
+          "category": "编程语言",
+          "evidence": [
+            {
+              "quote": "课程项目使用 Python"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "Java 岛不是编程技能证据"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "同词歧义",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_planned_skill",
+    "task": "resume",
+    "source_resume": "熟悉 Excel 数据透视表。计划下学期学习 Rust，目前尚无 Rust 项目。",
+    "expected": {
+      "skills": [
+        "Excel"
+      ],
+      "absent_skills": [
+        "Rust"
+      ],
+      "min_evidence": 1
+    },
+    "output": {
+      "skills": [
+        {
+          "name": "Excel",
+          "category": "工程工具",
+          "evidence": [
+            {
+              "quote": "熟悉 Excel 数据透视表"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "Rust 仅为学习计划"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "计划学习与已掌握区分",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_conflicting_dates",
+    "task": "resume",
+    "source_resume": "2025 年 7 月至 8 月在云杉实验室实习；另一处写 2025 年 6 月开始。负责接口测试。",
+    "expected": {
+      "absent_skills": [
+        "Postman"
+      ],
+      "min_evidence": 1
+    },
+    "output": {
+      "experiences": [
+        {
+          "organization": "云杉实验室",
+          "role": "接口测试实习生",
+          "evidence": [
+            {
+              "quote": "负责接口测试"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "实习开始时间有冲突，需人工确认"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "经历日期冲突",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_education_unknown_date",
+    "task": "resume",
+    "source_resume": "就读于虚构的北辰学院，信息管理本科。毕业时间未填写。",
+    "expected": {
+      "absent_skills": [
+        "Python"
+      ],
+      "min_evidence": 1
+    },
+    "output": {
+      "education": [
+        {
+          "institution": "北辰学院",
+          "degree": "本科",
+          "major": "信息管理",
+          "end_date": null,
+          "evidence": [
+            {
+              "quote": "信息管理本科"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "毕业时间缺失"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "教育日期缺失",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "resume_certificate_no_level_inference",
+    "task": "resume",
+    "source_resume": "2025 年通过大学英语六级考试。未提供具体分数。",
+    "expected": {
+      "absent_skills": [
+        "英语口语"
+      ],
+      "min_evidence": 1
+    },
+    "output": {
+      "certificates": [
+        {
+          "name": "大学英语六级",
+          "date": "2025 年",
+          "evidence": [
+            {
+              "quote": "通过大学英语六级考试"
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "考试分数未提供"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "证书与能力推断边界",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "job_degree_gate",
+    "task": "job",
+    "source_job": "招聘算法实习生。必须为计算机相关专业本科在读。熟悉 Python。",
+    "expected": {
+      "required_skills": [
+        "Python"
+      ],
+      "requirements": [
+        "计算机相关专业本科在读",
+        "Python"
+      ],
+      "min_requirements": 2
+    },
+    "output": {
+      "title": "算法实习生",
+      "required_skills": [
+        "Python"
+      ],
+      "preferred_skills": [],
+      "requirements": [
+        {
+          "name": "计算机相关专业本科在读",
+          "category": "学历",
+          "importance": "必须",
+          "evidence": "必须为计算机相关专业本科在读"
+        },
+        {
+          "name": "Python",
+          "category": "技能",
+          "importance": "必须",
+          "evidence": "熟悉 Python"
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "学历硬性条件",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "job_duration_gate",
+    "task": "job",
+    "source_job": "招聘运营实习生。每周到岗 4 天，连续实习至少 6 个月。",
+    "expected": {
+      "requirements": [
+        "每周到岗 4 天",
+        "至少 6 个月"
+      ],
+      "min_requirements": 2
+    },
+    "output": {
+      "title": "运营实习生",
+      "required_skills": [],
+      "preferred_skills": [],
+      "requirements": [
+        {
+          "name": "每周到岗 4 天",
+          "category": "时间",
+          "importance": "必须",
+          "evidence": "每周到岗 4 天"
+        },
+        {
+          "name": "至少 6 个月",
+          "category": "时间",
+          "importance": "必须",
+          "evidence": "连续实习至少 6 个月"
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "到岗天数与实习时长",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "job_location_gate",
+    "task": "job",
+    "source_job": "上海现场办公的产品实习生。要求能在上海到岗，熟悉用户访谈。",
+    "expected": {
+      "requirements": [
+        "上海到岗",
+        "用户访谈"
+      ],
+      "min_requirements": 2
+    },
+    "output": {
+      "title": "产品实习生",
+      "required_skills": [],
+      "preferred_skills": [],
+      "requirements": [
+        {
+          "name": "上海到岗",
+          "category": "地点",
+          "importance": "必须",
+          "evidence": "要求能在上海到岗"
+        },
+        {
+          "name": "用户访谈",
+          "category": "技能",
+          "importance": "必须",
+          "evidence": "熟悉用户访谈"
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "地点硬性条件",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "job_remote_uncertain",
+    "task": "job",
+    "source_job": "设计实习岗位，可远程参与部分任务；线下到岗安排需面试确认。",
+    "expected": {
+      "requirements": [
+        "线下到岗安排"
+      ],
+      "min_requirements": 1,
+      "absent_required_skills": [
+        "Figma"
+      ]
+    },
+    "output": {
+      "title": "设计实习生",
+      "required_skills": [],
+      "preferred_skills": [],
+      "requirements": [
+        {
+          "name": "线下到岗安排",
+          "category": "地点",
+          "importance": "必须",
+          "evidence": "线下到岗安排需面试确认"
+        }
+      ],
+      "warnings": [
+        "具体到岗频率需面试确认"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "远程与线下条件未确定",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "job_preferred_not_required",
+    "task": "job",
+    "source_job": "后端实习生必须掌握 Python；了解 Docker 为加分项。",
+    "expected": {
+      "required_skills": [
+        "Python"
+      ],
+      "absent_required_skills": [
+        "Docker"
+      ],
+      "requirements": [
+        "Python"
+      ],
+      "min_requirements": 2
+    },
+    "output": {
+      "title": "后端实习生",
+      "required_skills": [
+        "Python"
+      ],
+      "preferred_skills": [
+        "Docker"
+      ],
+      "requirements": [
+        {
+          "name": "Python",
+          "category": "技能",
+          "importance": "必须",
+          "evidence": "必须掌握 Python"
+        },
+        {
+          "name": "Docker",
+          "category": "技能",
+          "importance": "加分",
+          "evidence": "了解 Docker 为加分项"
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "必须与加分条件区分",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "job_conflicting_duration",
+    "task": "job",
+    "source_job": "数据实习生：标题称实习 3 个月；正文要求连续 6 个月。",
+    "expected": {
+      "requirements": [
+        "连续 6 个月"
+      ],
+      "min_requirements": 1
+    },
+    "output": {
+      "title": "数据实习生",
+      "required_skills": [],
+      "preferred_skills": [],
+      "requirements": [
+        {
+          "name": "连续 6 个月",
+          "category": "时间",
+          "importance": "必须",
+          "evidence": "正文要求连续 6 个月"
+        }
+      ],
+      "warnings": [
+        "实习时长出现 3 个月和 6 个月，需人工确认"
+      ]
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "岗位描述冲突",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "match_duration_unknown",
+    "task": "match",
+    "source_resume": "会使用 Python，未注明可实习月份。",
+    "source_job": "要求连续实习 6 个月。",
+    "candidate_profile": {
+      "basic_info": {
+        "name": "虚构候选人"
+      },
+      "summary": "会使用 Python，未注明可实习月份。"
+    },
+    "job_profile": {
+      "title": "虚构实习岗位",
+      "responsibilities": [
+        "要求连续实习 6 个月。"
+      ]
+    },
+    "expected": {
+      "requirements": [
+        "连续实习 6 个月"
+      ],
+      "assessment_statuses": {
+        "连续实习 6 个月": "无法确认"
+      },
+      "recommendation": "谨慎投递",
+      "score_range": [
+        60,
+        70
+      ],
+      "score_tolerance": 2,
+      "min_assessments": 1
+    },
+    "output": {
+      "overall_score": 65,
+      "recommendation": "谨慎投递",
+      "summary": "根据提供的文字保守判断，未确认条件需人工核对。",
+      "dimensions": [
+        {
+          "name": "技能匹配",
+          "score": 65,
+          "weight": 35,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "项目经验",
+          "score": 65,
+          "weight": 25,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "教育背景",
+          "score": 65,
+          "weight": 15,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "实习经历",
+          "score": 65,
+          "weight": 15,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "基本条件",
+          "score": 65,
+          "weight": 10,
+          "reason": "供离线一致性检查"
+        }
+      ],
+      "assessments": [
+        {
+          "requirement": "连续实习 6 个月",
+          "status": "无法确认",
+          "reason": "仅依据所给文字",
+          "resume_evidence": [],
+          "job_evidence": "要求连续实习 6 个月"
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "硬性时间条件无法确认",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "match_degree_unmet",
+    "task": "match",
+    "source_resume": "大专在读，负责过活动策划。",
+    "source_job": "必须为本科在读。",
+    "candidate_profile": {
+      "basic_info": {
+        "name": "虚构候选人"
+      },
+      "summary": "大专在读，负责过活动策划。"
+    },
+    "job_profile": {
+      "title": "虚构实习岗位",
+      "responsibilities": [
+        "必须为本科在读。"
+      ]
+    },
+    "expected": {
+      "requirements": [
+        "本科在读"
+      ],
+      "assessment_statuses": {
+        "本科在读": "不满足"
+      },
+      "recommendation": "暂不建议投递",
+      "score_range": [
+        30,
+        40
+      ],
+      "score_tolerance": 2,
+      "min_assessments": 1
+    },
+    "output": {
+      "overall_score": 35,
+      "recommendation": "暂不建议投递",
+      "summary": "根据提供的文字保守判断，未确认条件需人工核对。",
+      "dimensions": [
+        {
+          "name": "技能匹配",
+          "score": 35,
+          "weight": 35,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "项目经验",
+          "score": 35,
+          "weight": 25,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "教育背景",
+          "score": 35,
+          "weight": 15,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "实习经历",
+          "score": 35,
+          "weight": 15,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "基本条件",
+          "score": 35,
+          "weight": 10,
+          "reason": "供离线一致性检查"
+        }
+      ],
+      "assessments": [
+        {
+          "requirement": "本科在读",
+          "status": "不满足",
+          "reason": "仅依据所给文字",
+          "resume_evidence": [
+            "大专在读"
+          ],
+          "job_evidence": "必须为本科在读"
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "学历硬性条件不满足",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
+    }
+  },
+  {
+    "id": "match_experience_partial",
+    "task": "match",
+    "source_resume": "课程中完成过 SQL 查询练习。",
+    "source_job": "要求有企业 SQL 项目经验。",
+    "candidate_profile": {
+      "basic_info": {
+        "name": "虚构候选人"
+      },
+      "summary": "课程中完成过 SQL 查询练习。"
+    },
+    "job_profile": {
+      "title": "虚构实习岗位",
+      "responsibilities": [
+        "要求有企业 SQL 项目经验。"
+      ]
+    },
+    "expected": {
+      "requirements": [
+        "企业 SQL 项目经验"
+      ],
+      "assessment_statuses": {
+        "企业 SQL 项目经验": "部分满足"
+      },
+      "recommendation": "谨慎投递",
+      "score_range": [
+        53,
+        63
+      ],
+      "score_tolerance": 2,
+      "min_assessments": 1
+    },
+    "output": {
+      "overall_score": 58,
+      "recommendation": "谨慎投递",
+      "summary": "根据提供的文字保守判断，未确认条件需人工核对。",
+      "dimensions": [
+        {
+          "name": "技能匹配",
+          "score": 58,
+          "weight": 35,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "项目经验",
+          "score": 58,
+          "weight": 25,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "教育背景",
+          "score": 58,
+          "weight": 15,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "实习经历",
+          "score": 58,
+          "weight": 15,
+          "reason": "供离线一致性检查"
+        },
+        {
+          "name": "基本条件",
+          "score": 58,
+          "weight": 10,
+          "reason": "供离线一致性检查"
+        }
+      ],
+      "assessments": [
+        {
+          "requirement": "企业 SQL 项目经验",
+          "status": "部分满足",
+          "reason": "仅依据所给文字",
+          "resume_evidence": [
+            "完成过 SQL 查询练习"
+          ],
+          "job_evidence": "要求有企业 SQL 项目经验"
+        }
+      ],
+      "warnings": []
+    },
+    "review": {
+      "origin": "虚构合成",
+      "focus": "课程练习与企业经验区分",
+      "record": "2026-11-18 编制并按规则复跑；人工语义复核待完成"
     }
   }
 ]

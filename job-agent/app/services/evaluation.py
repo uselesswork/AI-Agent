@@ -53,6 +53,10 @@ def evaluate_case(case: dict[str, Any], output: dict[str, Any]) -> dict[str, Any
             names = {item.name.casefold() for item in model.skills}
             checks.append(_check("expected_skills", all(
                 skill.casefold() in names for skill in expected["skills"])))
+        if "absent_skills" in expected:
+            names = {item.name.casefold() for item in model.skills}
+            checks.append(_check("no_unsupported_skills", all(
+                skill.casefold() not in names for skill in expected["absent_skills"])))
     elif task == "job":
         source = case.get("source_job", "")
         checks.append(_check("job_evidence_literal", all(
@@ -64,6 +68,15 @@ def evaluate_case(case: dict[str, Any], output: dict[str, Any]) -> dict[str, Any
             names = {skill.casefold() for skill in model.required_skills}
             checks.append(_check("expected_required_skills", all(
                 skill.casefold() in names for skill in expected["required_skills"])))
+        if "requirements" in expected:
+            names = {item.name.casefold() for item in model.requirements}
+            checks.append(_check("expected_job_requirements", all(
+                name.casefold() in names for name in expected["requirements"])))
+        if "absent_required_skills" in expected:
+            names = {skill.casefold() for skill in model.required_skills}
+            checks.append(_check("no_unsupported_required_skills", all(
+                skill.casefold() not in names
+                for skill in expected["absent_required_skills"])))
     else:
         resume_source = case.get("source_resume", "")
         job_source = case.get("source_job", "")
@@ -77,6 +90,10 @@ def evaluate_case(case: dict[str, Any], output: dict[str, Any]) -> dict[str, Any
         tolerance = expected.get("score_tolerance", 10)
         checks.append(_check("weighted_score_near_overall",
                              abs(model.overall_score - weighted) <= tolerance))
+        if "score_range" in expected:
+            lower, upper = expected["score_range"]
+            checks.append(_check("expected_score_range",
+                                 lower <= model.overall_score <= upper))
         if "recommendation" in expected:
             checks.append(_check("expected_recommendation",
                                  model.recommendation == expected["recommendation"]))
@@ -87,5 +104,11 @@ def evaluate_case(case: dict[str, Any], output: dict[str, Any]) -> dict[str, Any
         if "min_assessments" in expected:
             checks.append(_check("minimum_match_assessments",
                                  len(model.assessments) >= expected["min_assessments"]))
+        if "assessment_statuses" in expected:
+            statuses = {item.requirement.casefold(): item.status
+                        for item in model.assessments}
+            checks.append(_check("expected_assessment_statuses", all(
+                statuses.get(name.casefold()) == status
+                for name, status in expected["assessment_statuses"].items())))
     return {"id": case.get("id"), "task": task,
             "passed": all(item["passed"] for item in checks), "checks": checks}
