@@ -43,4 +43,4 @@ jobs:
         run: python -m pytest -q
       - name: Isolated MySQL integration test
         working-directory: job-agent
-        run: python -m pytest tests/test_mysql_integration.py --run-mysql-integration -q
+        run: python -m pytest tests/test_mysql_integration.py tests/test_migrations_mysql.py --run-mysql-integration -q

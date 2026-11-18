@@ -1,7 +1,7 @@
 """第十三阶段新增账号与归属表；旧投递快照字段保留。"""
 
 from sqlalchemy import (
-    JSON, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
+    JSON, Column, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import LONGTEXT
@@ -35,6 +35,8 @@ user_assets = Table(
     Column("user_id", Integer, nullable=False, index=True),
     mysql_charset="utf8mb4",
 )
+Index("ix_user_assets_owner_type_id", user_assets.c.user_id,
+      user_assets.c.entity_type, user_assets.c.entity_id)
 
 resumes = Table(
     "resumes", metadata,

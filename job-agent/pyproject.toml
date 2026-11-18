@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "一个基于证据分析简历与实习岗位描述匹配度的 AI Agent。"
 requires-python = ">=3.11,<3.13"
 dependencies = [
+    "alembic>=1.14,<2",
     "fastapi>=0.115,<1",
     "openai>=2.38,<3",
     "pymupdf>=1.25,<2",

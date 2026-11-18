@@ -1,6 +1,11 @@
 """旧阶段测试使用隔离的测试身份；认证专项测试走真实会话检查。"""
 
+import os
+from uuid import uuid4
+
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 
 from app.core import request_auth
 from app.core.user_scope import bind_user, reset_user
@@ -37,3 +42,35 @@ def test_identity(monkeypatch, request):
         yield
     finally:
         reset_user(token)
+
+
+@pytest.fixture
+def mysql_test_engine():
+    """每例独占随机 MySQL 库；仅连接显式提供的测试管理端。"""
+    raw_url = os.environ.get("MYSQL_TEST_ADMIN_URL")
+    if not raw_url:
+        pytest.fail("必须设置 MYSQL_TEST_ADMIN_URL；只接受独立测试服务器的管理连接。")
+    admin_url = make_url(raw_url)
+    if admin_url.drivername != "mysql+pymysql" or admin_url.database != "mysql":
+        pytest.fail("MYSQL_TEST_ADMIN_URL 必须指向 mysql 系统库，不能指向业务库。")
+
+    test_database = f"job_agent_test_{uuid4().hex}"
+    admin_engine = create_engine(admin_url, pool_pre_ping=True)
+    created = False
+    try:
+        with admin_engine.begin() as connection:
+            connection.exec_driver_sql(
+                f"CREATE DATABASE `{test_database}` CHARACTER SET utf8mb4 "
+                "COLLATE utf8mb4_unicode_ci"
+            )
+        created = True
+        engine = create_engine(admin_url.set(database=test_database), pool_pre_ping=True)
+        try:
+            yield engine
+        finally:
+            engine.dispose()
+    finally:
+        if created:
+            with admin_engine.begin() as connection:
+                connection.exec_driver_sql(f"DROP DATABASE `{test_database}`")
+        admin_engine.dispose()

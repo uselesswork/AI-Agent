@@ -25,18 +25,18 @@
 | 第十三阶段 | 本机账号登录、按账号数据隔离、个人数据导出与删除、访问控制 | [账号登录与数据隔离](docs/第十三阶段-账号登录与数据隔离.md) |
 | 第十四阶段 | 模型输出离线评估、浏览器端到端测试、本机就绪检查与可选容器配置 | [评估、端到端测试与部署监控](docs/第十四阶段-评估端到端测试与部署监控.md) |
 | 第十五阶段 | 隔离 MySQL 集成测试与 Python CI 工作流 | [真实 MySQL 集成测试与 CI](docs/第十五阶段-真实MySQL集成测试与CI.md) |
+| 第十六阶段 | Alembic 十四表基线、旧库安全接入和复合索引增量升级 | [数据库迁移管理](docs/第十六阶段-数据库迁移管理.md) |
 
 ### 待完成专项索引
 
-原四项计划中的 MySQL 集成测试与 CI 已进入第十五阶段：本机集成用例和修复后的远端 CI 均通过。以下三项仍待实现。
+原四项计划中的 MySQL 集成测试与 CI、数据库迁移管理已分别进入第十五、十六阶段。以下两项仍待实现。
 
 | 优先级 | 待完成事项 | 计划说明 |
 | --- | --- | --- |
-| 1 | 建立数据库迁移基线和后续版本链，区分旧升级脚本与新迁移路径 | [数据库迁移管理](docs/待办-数据库迁移管理.md) |
-| 2 | 扩充人工核对的 AI 案例与质量指标，保留离线和真实模型评估边界 | [AI 评估集扩充](docs/待办-AI评估集扩充.md) |
-| 3 | 在隔离数据库上完成实际镜像构建、容器启动、登录、持久化和重启演练 | [容器部署演练](docs/待办-容器部署演练.md) |
+| 1 | 扩充人工核对的 AI 案例与质量指标，保留离线和真实模型评估边界 | [AI 评估集扩充](docs/待办-AI评估集扩充.md) |
+| 2 | 在隔离数据库上完成实际镜像构建、容器启动、登录、持久化和重启演练 | [容器部署演练](docs/待办-容器部署演练.md) |
 
-第一至第十五阶段的代码已实现；第十五阶段的 GitHub Actions 在补齐 Linux 中文字体后远端运行通过。第十三阶段初始账号升级已由用户在本机执行，真实账号网页登录仍待人工验证。第十四阶段的浏览器测试使用虚构账号和临时 SQLite，容器运行尚未验证。2026-11-13 当前新库已建十四张表和一个账号，投递为 0；历史七条投递记录属于旧库验证结果。
+第一至第十六阶段的代码已实现；第十六阶段的迁移只在隔离 MySQL 库执行，日常库尚未登记 Alembic 版本。第十五阶段 GitHub Actions 在补齐 Linux 中文字体后远端运行通过。第十三阶段初始账号升级已由用户在本机执行，真实账号网页登录仍待人工验证。第十四阶段的浏览器测试使用虚构账号和临时 SQLite，容器运行尚未验证。2026-11-13 的十四表、一个账号和零条投递属于当时新库的记录；历史七条投递属于更早的旧库验证结果。
 
 数据库专题：[十四张表的职责、字段字典、主外键与初始化说明](docs/数据库设计与字段说明.md)。
 
@@ -47,7 +47,7 @@
 - 新增阶段时创建独立说明并补充索引；修改已有阶段时更新文档核对日期。
 - 明确区分已实现、提示词约束、待完善和验证范围；不能将模拟测试通过写成真实模型或 MySQL 联调成功。
 - 示例只使用占位密钥和密码，不复制 `.env` 中的真实信息。
-- 本轮文档核对日期：2026-11-13；第十五阶段的本机 MySQL 结果见独立说明，既有阶段验证记录仍按原日期理解。
+- 本轮文档核对日期：2026-11-18；第十六阶段的隔离 MySQL 迁移验证见独立说明，既有阶段验证记录仍按原日期理解。
 
 ## 当前进度
 
@@ -181,11 +181,17 @@
 - 新增 GitHub Actions 工作流，准备临时 MySQL 服务、安装中文 PDF 字体，并运行 Ruff、普通测试和独立 MySQL 用例；修复后的远端作业全部通过
 - 本机测试结果为普通套件 88 项通过、2 项按设计跳过，另有 1 项 MySQL 集成测试通过；日常库保持 1 个账号、0 条投递。详见[第十五阶段说明](docs/第十五阶段-真实MySQL集成测试与CI.md)
 
+第十六阶段的数据库迁移管理已完成本机实现与隔离验证：
+
+- Alembic `0001` 固定原十四表结构，`0002` 增加 `user_assets(user_id, entity_type, entity_id)` 复合索引；应用仍不会在启动时自动升级 MySQL
+- 提供空库初始化、完整旧库接入、后续升级及只读状态检查；结构不符时拒绝登记版本
+- 隔离 MySQL 的真实会话与迁移用例共 6 项通过，普通套件 88 项通过、7 项按设计跳过，Ruff 通过；当前日常库只读通过基线检查，尚未执行迁移。详见[第十六阶段说明](docs/第十六阶段-数据库迁移管理.md)
+
 ### 当前实现边界
 
 - 匹配分由大模型生成；在线业务后端检查范围、五个维度和权重总和，但尚未重新计算总分或逐字核验引用证据。第十四阶段独立评估器可离线检查加权分和字面证据，不改变在线业务校验，也不能证明语义或事实正确。
 - 前端“查看与编辑”可回看旧投递快照；第九阶段可在资料库重新分析并新增独立报告，但不会替换旧投递采用的报告，也没有报告版本切换或对比。
-- 当前持久化使用 SQLAlchemy Core 和 MySQL，没有 Alembic 迁移；普通数据库自动化测试使用临时 SQLite，第十五阶段另有显式启用的独立 MySQL 用例。
+- 当前持久化使用 SQLAlchemy Core 和 MySQL；Alembic 迁移需要显式运行，日常库尚未登记版本。普通数据库自动化测试使用临时 SQLite，第十五、十六阶段另有显式启用的独立 MySQL 用例。
 - 第五阶段自动生成稿只使用数据库里的结构化画像，不含原始简历/JD 全文；第六阶段允许人工编辑和保存，但系统不会核验人工填写的事实。确认时间只代表人工操作，不代表内容已被机器验证。
 - 已增加本机账号与数据隔离及本机密码重置，但没有网页自助找回、登录限流或公网部署安全验证，仍不应将含个人信息的服务直接暴露公网。PDF 导出需要本机可用的中文字体。
 - 第七阶段证据检查仅是去空白、忽略英文大小写的字面片段查找：简历原文命中、岗位原文命中和未命中都不代表自动事实核验。原始简历文件字节仍不保存。
@@ -417,7 +423,18 @@ DATABASE_URL=mysql+pymysql://job_agent:你的密码@127.0.0.1:3306/job_agent?cha
 
 如果密码包含 `@`、`:`、`/`、`#` 等特殊字符，需要先进行 URL 编码。数据库和账号需要提前创建。当前代码定义十四张表，现有 MySQL 已完成第十三阶段初始账号升级；其他旧库仍须按下文升级。尚无旧 SQLite 到 MySQL 的跨库迁移脚本。生产环境应使用权限受限的独立账号，不建议直接使用 `root`。
 
-### 完整初始化、旧数据回填与第六阶段升级
+### 第十六阶段：显式数据库迁移
+
+在 `D:\Agent\job-agent` 安装当前依赖后，先执行**只读**状态检查：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -X utf8 -m scripts.manage_migrations status
+```
+
+全新空库可运行 `scripts.manage_migrations initialize`；已完成第十三阶段、结构通过十四表基线检查且尚无版本记录的库，在备份并停止写入后运行 `scripts.manage_migrations adopt`；已登记版本的库运行 `scripts.manage_migrations upgrade`。三个写命令均需在确认目标 `.env` 和备份后执行。当前日常库已只读确认符合基线，**尚未执行 `adopt`**。脚本不会创建网页登录账号或导入样例。版本说明、失败恢复和适用范围见[第十六阶段说明](docs/第十六阶段-数据库迁移管理.md)。
+
+### 历史旧库初始化、关联回填与各阶段升级
 
 以下为第十三阶段之前的历史初始化步骤；只适用于尚无账号的旧库。当前已启用账号的 MySQL 库不要重跑它。其他库若需从更早结构补齐，应在备份、停写并完成各阶段升级后再创建初始账号：
 
@@ -550,11 +567,11 @@ cd D:\Agent\job-agent
 
 真实模型评估需主动使用 `--live --provider openai` 或 `--live --provider deepseek`，可能产生费用；本轮未运行。容器部署前需要另行配置被 Git 忽略的 `.env.docker`，参见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)。
 
-第十五阶段的真实 MySQL 用例默认跳过。仅在**独立测试 MySQL 实例**配置 `MYSQL_TEST_ADMIN_URL`（连接 `mysql` 系统库、可创建/删除随机测试库）后显式运行；不要将该变量写进仓库或指向日常业务库：
+第十五、十六阶段的真实 MySQL 用例默认跳过。仅在**独立测试 MySQL 实例**配置 `MYSQL_TEST_ADMIN_URL`（连接 `mysql` 系统库、可创建/删除随机测试库）后显式运行；不要将该变量写进仓库或指向日常业务库：
 
 ```powershell
 .\.venv\Scripts\python.exe -m ruff check .
-.\.venv\Scripts\python.exe -m pytest tests/test_mysql_integration.py --run-mysql-integration -q
+.\.venv\Scripts\python.exe -m pytest tests/test_mysql_integration.py tests/test_migrations_mysql.py --run-mysql-integration -q
 ```
 
 CI 工作流位于 `.github/workflows/python-ci.yml`，提交或 PR 时使用临时 MySQL 服务。2026-11-13 首次远端运行在普通测试步骤失败，MySQL 用例因前序失败未运行；补充 Linux 中文字体安装与路径检查后，[第二次作业](https://github.com/uselesswork/AI-Agent/actions/runs/43394810237)的字体安装、Ruff、普通测试和 MySQL 用例均通过。详见[第十五阶段说明](docs/第十五阶段-真实MySQL集成测试与CI.md)。
@@ -580,6 +597,7 @@ app/api/jobs.py                    岗位描述解析接口
 app/api/matches.py                 简历与岗位匹配接口
 app/core/config.py                 OpenAI、DeepSeek 和 MySQL 环境配置
 app/core/database_schema.py        十四张表、外键与索引定义
+alembic.ini / alembic/              Alembic 配置、冻结的十四表基线和归属索引迁移
 app/core/request_auth.py           会话、同源和 CSRF 校验
 app/core/user_scope.py             当前请求账号上下文
 app/core/observability.py          请求 ID 与最小化访问日志
@@ -632,13 +650,15 @@ tests/test_evaluation.py           评估规则正反例与命令行默认行为
 tests/test_browser_e2e.py          真实浏览器登录、解析、隔离与退出测试
 tests/test_operational.py          数据库就绪检查与日志最小化测试
 tests/test_mysql_integration.py    随机独立 MySQL 测试库的真实会话与投递读写测试
+tests/test_migrations_mysql.py      空库升级、旧库接入与结构漂移拒绝测试
 tests/test_deployment_config.py    容器配置静态测试
-tests/conftest.py                  旧阶段模拟身份与浏览器测试显式开关
+tests/conftest.py                  模拟身份、显式测试开关和随机 MySQL 测试库夹具
 evals/cases.json                   三个虚构离线评估案例
 Dockerfile / compose.yaml          可选本机容器运行配置
 .github/workflows/python-ci.yml    Ruff、普通测试和独立 MySQL 测试的 CI 配置（位于仓库根目录）
 .dockerignore / .env.docker.example 容器构建排除项与占位配置示例
 scripts/init_database.py         MySQL 完整增量初始化、回填及检查
+scripts/manage_migrations.py       显式状态检查、空库初始化、旧库接入和版本升级
 scripts/upgrade_draft_versions.py MySQL 只新增草稿版本表
 scripts/upgrade_application_sources.py MySQL 只新增原文留存表
 scripts/upgrade_job_favorites.py MySQL 只新增岗位收藏表
@@ -736,4 +756,4 @@ cd D:\Agent\job-agent
 
 ## 下一阶段
 
-第十五阶段 CI 已在远端通过；下一项是[数据库迁移管理](docs/待办-数据库迁移管理.md)，随后为[AI 评估集扩充](docs/待办-AI评估集扩充.md)和[容器部署演练](docs/待办-容器部署演练.md)。2026-11-13 当前本机服务的 `/health`、`/ready`、`/upload` 和静态资源只读检查返回 200，日常 MySQL 有十四张表和一个账号、投递为 0；未取得用户密码，故尚未验证该账号实际登录。2026-10-28 的七条投递与容器静态测试是历史库/环境记录。当前没有语义级事实核验、一键投递或自动发送功能。
+第十六阶段代码与隔离 MySQL 迁移测试已通过；日常库尚未登记 Alembic 版本，须在备份和停写后按[第十六阶段说明](docs/第十六阶段-数据库迁移管理.md)执行。下一项是[AI 评估集扩充](docs/待办-AI评估集扩充.md)，随后为[容器部署演练](docs/待办-容器部署演练.md)。2026-11-13 本机服务的 `/health`、`/ready`、`/upload` 和静态资源只读检查返回 200，当时日常 MySQL 有十四张表、一个账号和零条投递；未取得用户密码，故尚未验证该账号实际登录。2026-10-28 的七条投递与容器静态测试是历史库/环境记录。当前没有语义级事实核验、一键投递或自动发送功能。

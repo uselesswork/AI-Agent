@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Agent.iml" filepath="$PROJECT_DIR$/.idea/Agent.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/job-agent.iml" filepath="$PROJECT_DIR$/.idea/job-agent.iml" />
     </modules>
   </component>
 </project>

@@ -1,6 +1,6 @@
 # 第十五阶段：真实 MySQL 集成测试与 CI
 
-> 核对日期：2026-11-13。代码、本机隔离 MySQL 用例和补齐字体后的 GitHub Actions 远端运行均已验证。
+> 核对日期：2026-11-13；2026-11-18 补充第十六阶段对测试夹具及 CI 步骤的复用说明。代码、本机隔离 MySQL 用例和补齐字体后的 GitHub Actions 远端运行均已验证。
 > [返回项目说明](../README.md) · [原待办计划](待办-真实MySQL集成测试与CI.md) · [数据库设计](数据库设计与字段说明.md)
 
 ## 一眼看懂本阶段
@@ -11,10 +11,10 @@
 
 | 文件 | 本阶段职责 |
 | --- | --- |
-| `job-agent/tests/test_mysql_integration.py` | 随机测试库的创建/清理、双账号登录、CSRF、投递写入/状态事件、跨账号拒绝、事务回滚、删除级联及登出检查 |
-| `job-agent/tests/conftest.py` | 新增 `--run-mysql-integration` 开关；普通测试默认跳过 MySQL 用例，浏览器用例继续独立开关 |
+| `job-agent/tests/test_mysql_integration.py` | 双账号登录、CSRF、投递写入/状态事件、跨账号拒绝、事务回滚、删除级联及登出检查 |
+| `job-agent/tests/conftest.py` | `--run-mysql-integration` 开关和随机测试库的创建/清理夹具；普通测试默认跳过 MySQL 用例，浏览器用例继续独立开关 |
 | `job-agent/pyproject.toml` | 注册 MySQL 用例标记，并明确 Ruff 的基础错误规则 `E4`、`E7`、`E9`、`F` |
-| `.github/workflows/python-ci.yml` | 提交和 PR 时安装开发依赖及中文 PDF 字体，运行 Ruff、普通 pytest 与独立 MySQL 用例 |
+| `.github/workflows/python-ci.yml` | 提交和 PR 时安装开发依赖及中文 PDF 字体，运行 Ruff、普通 pytest 与独立 MySQL 用例；第十六阶段起同一步骤还运行迁移用例 |
 
 ## 数据流和运行方式
 
@@ -30,6 +30,8 @@ cd D:\Agent\job-agent
 ```
 
 CI 的 MySQL 服务仅在该次作业存在。工作流内的 `ci-only-password` 是临时测试服务的固定占位凭据，不用于用户数据库。普通套件默认跳过浏览器和 MySQL 两类显式用例；MySQL 集成测试在 CI 的独立步骤中运行。CI 失败会返回非零退出码，阻止将失败的测试结果误写为通过。
+
+2026-11-18 起，随机库夹具移至 `tests/conftest.py` 供[第十六阶段迁移测试](第十六阶段-数据库迁移管理.md)共用；CI 的 MySQL 步骤同时运行 `test_mysql_integration.py` 和 `test_migrations_mysql.py`。本阶段下列 2026-11-13 结果是当时的历史验证，新增迁移用例的本机结果见第十六阶段说明。
 
 ## 实际验证与限制
 
