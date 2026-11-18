@@ -1,0 +1,46 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${JOB_AGENT_EXERCISE_ROOT_PASSWORD:?请设置临时 root 密码}
+      MYSQL_DATABASE: job_agent_exercise
+      MYSQL_USER: jobagent_exercise
+      MYSQL_PASSWORD: ${JOB_AGENT_EXERCISE_DB_PASSWORD:?请设置临时数据库密码}
+    volumes:
+      - exercise_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    image: job-agent-exercise:local
+    build: .
+    environment:
+      LLM_PROVIDER: openai
+      OPENAI_API_KEY: ""
+      DATABASE_URL: mysql+pymysql://jobagent_exercise:${JOB_AGENT_EXERCISE_DB_PASSWORD:?请设置临时数据库密码}@mysql:3306/job_agent_exercise?charset=utf8mb4
+    ports:
+      - "127.0.0.1:18080:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+
+volumes:
+  exercise_mysql:

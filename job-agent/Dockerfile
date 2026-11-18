@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 COPY pyproject.toml ./
 COPY app ./app
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY scripts ./scripts
 RUN python -m pip install --no-cache-dir . \
     && useradd --create-home --uid 10001 jobagent
 
