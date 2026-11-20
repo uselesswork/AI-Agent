@@ -4,6 +4,7 @@ from typing import Any, Protocol
 from openai import APIError, APITimeoutError, AsyncOpenAI
 
 from app.core.config import ProviderConfig
+from app.observability.langsmith import LangSmithTracer
 
 
 class LLMServiceError(RuntimeError):
@@ -25,8 +26,9 @@ class JSONGenerator(Protocol):
 
 
 class OpenAICompatibleClient:
-    def __init__(self, config: ProviderConfig) -> None:
+    def __init__(self, config: ProviderConfig, tracer: LangSmithTracer | None = None) -> None:
         self.config = config
+        self.tracer = tracer
         self.client = AsyncOpenAI(
             api_key=config.api_key,
             base_url=config.base_url,
@@ -43,6 +45,18 @@ class OpenAICompatibleClient:
         return self.config.model
 
     async def generate_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+        if self.tracer is None:
+            result, _ = await self._generate_json(system_prompt, user_prompt)
+            return result
+        return await self.tracer.run(
+            self.provider,
+            self.model,
+            lambda: self._generate_json(system_prompt, user_prompt),
+        )
+
+    async def _generate_json(
+        self, system_prompt: str, user_prompt: str
+    ) -> tuple[dict[str, Any], dict[str, int]]:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -82,4 +96,14 @@ class OpenAICompatibleClient:
             raise LLMResponseError("大模型未返回合法 JSON，请重试。") from exc
         if not isinstance(data, dict):
             raise LLMResponseError("大模型返回的 JSON 顶层必须是对象。")
-        return data
+        usage = getattr(response, "usage", None)
+        token_counts = {
+            key: count
+            for key, count in (
+                ("prompt_tokens", getattr(usage, "prompt_tokens", None)),
+                ("completion_tokens", getattr(usage, "completion_tokens", None)),
+                ("total_tokens", getattr(usage, "total_tokens", None)),
+            )
+            if isinstance(count, int)
+        }
+        return data, token_counts

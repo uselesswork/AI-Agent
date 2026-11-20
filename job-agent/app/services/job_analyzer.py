@@ -4,6 +4,7 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.models.job import JobProfile
+from app.observability.langsmith import get_langsmith_tracer
 from app.prompts.job_analysis import SYSTEM_PROMPT, build_job_analysis_prompt
 from app.services.llm import JSONGenerator, LLMResponseError, OpenAICompatibleClient
 
@@ -29,4 +30,6 @@ class JobAnalyzer:
 
 
 def build_job_analyzer(provider: Literal["openai", "deepseek"] | None = None) -> JobAnalyzer:
-    return JobAnalyzer(OpenAICompatibleClient(get_settings().provider_config(provider)))
+    return JobAnalyzer(
+        OpenAICompatibleClient(get_settings().provider_config(provider), get_langsmith_tracer())
+    )

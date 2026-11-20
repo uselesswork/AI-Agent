@@ -4,6 +4,7 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.models.candidate import CandidateProfile
+from app.observability.langsmith import get_langsmith_tracer
 from app.prompts.resume_analysis import SYSTEM_PROMPT, build_resume_analysis_prompt
 from app.services.llm import JSONGenerator, LLMResponseError, OpenAICompatibleClient
 
@@ -35,4 +36,4 @@ def build_resume_analyzer(
     provider: Literal["openai", "deepseek"] | None = None,
 ) -> ResumeAnalyzer:
     config = get_settings().provider_config(provider)
-    return ResumeAnalyzer(OpenAICompatibleClient(config))
+    return ResumeAnalyzer(OpenAICompatibleClient(config, get_langsmith_tracer()))

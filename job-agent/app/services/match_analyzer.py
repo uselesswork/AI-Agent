@@ -6,6 +6,7 @@ from app.core.config import get_settings
 from app.models.candidate import CandidateProfile
 from app.models.job import JobProfile
 from app.models.match import MatchResult
+from app.observability.langsmith import get_langsmith_tracer
 from app.prompts.match_analysis import SYSTEM_PROMPT, build_match_analysis_prompt
 from app.services.llm import JSONGenerator, LLMResponseError, OpenAICompatibleClient
 
@@ -35,4 +36,6 @@ class MatchAnalyzer:
 def build_match_analyzer(
     provider: Literal["openai", "deepseek"] | None = None,
 ) -> MatchAnalyzer:
-    return MatchAnalyzer(OpenAICompatibleClient(get_settings().provider_config(provider)))
+    return MatchAnalyzer(
+        OpenAICompatibleClient(get_settings().provider_config(provider), get_langsmith_tracer())
+    )

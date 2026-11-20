@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 60
     llm_max_retries: int = 2
     llm_max_output_tokens: int = 4096
+    langsmith_tracing: bool = False
+    langsmith_api_key: SecretStr | None = None
+    langsmith_project: str = "job-agent"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
     database_url: str = (
         "mysql+pymysql://job_agent:请修改密码@127.0.0.1:3306/job_agent?charset=utf8mb4"
     )
