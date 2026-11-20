@@ -209,3 +209,53 @@ def test_retry_cli_uses_saved_request_id(tmp_path, monkeypatch) -> None:
         assert evaluate_outputs.main() == 0
         assert request_id in calls
         assert pending_calls(path, run_id) == []
+
+
+def test_explicit_offline_hub_import_saves_sanitized_report(tmp_path, monkeypatch) -> None:
+    report_path = tmp_path / "report.json"
+    observed = []
+    monkeypatch.setattr(evaluate_outputs, "upload_report",
+                        lambda path, url: observed.append((path, url)) or "hub-run")
+    monkeypatch.setattr(evaluate_outputs, "generate_live",
+                        lambda *_: (_ for _ in ()).throw(AssertionError("不得调用模型")))
+    monkeypatch.setattr("sys.argv", ["scripts.evaluate_outputs", "--hub-url",
+                                 "http://127.0.0.1:8080", "--report-file", str(report_path)])
+    assert evaluate_outputs.main() == 0
+    assert observed == [(report_path, "http://127.0.0.1:8080")]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["resultSource"] == "OFFLINE_FIXTURE"
+    assert report["modelId"] is None
+    assert len(report["cases"]) == 20
+    assert report["datasetSha256"]
+    assert "source_resume" not in report_path.read_text(encoding="utf-8")
+    assert "source_job" not in report_path.read_text(encoding="utf-8")
+
+
+def test_live_report_run_id_is_used_for_call_upload(tmp_path, monkeypatch) -> None:
+    case = deepcopy(evaluate_outputs.load_cases(evaluate_outputs.DEFAULT_CASES)[0])
+    case_file = tmp_path / "case.json"
+    case_file.write_text(json.dumps([case], ensure_ascii=False), encoding="utf-8")
+    usage_file = tmp_path / "usage.jsonl"
+    report_file = tmp_path / "report.json"
+    client = model_client("openai", [response("actual-model", SimpleNamespace(
+        prompt_tokens=3, completion_tokens=2))])
+
+    async def fake_generate(selected_case, provider):
+        await client.generate_json("system", "user")
+        return selected_case["output"]
+
+    uploads = []
+    monkeypatch.setattr(evaluate_outputs, "generate_live", fake_generate)
+    monkeypatch.setattr(evaluate_outputs, "get_settings", lambda: SimpleNamespace(
+        openai_model="requested-model", deepseek_model="unused"))
+    monkeypatch.setattr(evaluate_outputs, "upload_report", lambda path, url: "hub-run")
+    monkeypatch.setattr(evaluate_outputs, "upload_pending",
+                        lambda path, url, run_id: uploads.append((path, run_id)) or (1, 0))
+    monkeypatch.setattr("sys.argv", ["scripts.evaluate_outputs", "--file", str(case_file),
+                                 "--live", "--provider", "openai", "--hub-url",
+                                 "http://127.0.0.1:8080", "--usage-file", str(usage_file),
+                                 "--report-file", str(report_file)])
+    assert evaluate_outputs.main() == 0
+    assert uploads == [(usage_file, "hub-run")]
+    assert json.loads(report_file.read_text(encoding="utf-8"))["resultSource"] == "LIVE_MODEL"
+    assert pending_calls(usage_file, "hub-run")[0]["payload"]["inputTokens"] == 3

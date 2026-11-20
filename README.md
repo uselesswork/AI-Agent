@@ -604,7 +604,14 @@ cd D:\Agent\job-agent
 .\.venv\Scripts\python.exe -X utf8 -m scripts.evaluate_outputs --retry-usage-file test-results/live-usage/示例.jsonl --hub-url http://127.0.0.1:8080 --hub-run-id 00000000-0000-0000-0000-000000000000
 ```
 
-上例路径和运行 ID 仅是命令格式占位；实际重试必须换成 live 生成的文件和 Hub 已存在的运行 ID。默认离线模式不写用量文件、不访问 Hub；调用用量上报不包含评测结果。详见[第十七阶段说明](docs/第十七阶段-AI评估集扩充.md)。常规容器部署前需要另行配置被 Git 忽略的 `.env.docker`，参见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)。第十八阶段的隔离演练不读取该文件：
+上例路径和运行 ID 仅是旧版手动关联命令格式占位。现在显式提供 `--hub-url` 而不提供 `--hub-run-id`，会先生成不含原文的规则报告、导入 Hub 取得运行 ID，再把 live 调用归到同一运行；离线模式也可显式导入 20 个虚构案例的规则结果，默认离线仍不访问 Hub。失败后用原 `--retry-report-file`，live 时还可附带原 `--retry-usage-file` 重试，不重新调用模型：
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m scripts.evaluate_outputs --hub-url http://127.0.0.1:8080
+.\.venv\Scripts\python.exe -X utf8 -m scripts.evaluate_outputs --retry-report-file test-results/job-reports/示例.json --hub-url http://127.0.0.1:8080
+```
+
+上述路径是占位。2026-11-20 已用一次性隔离 Hub/MySQL 实际导入离线规则结果，重复上传使用同一运行；没有运行真实模型。详见[第十七阶段说明的第五阶段补充](docs/第十七阶段-AI评估集扩充.md)。常规容器部署前需要另行配置被 Git 忽略的 `.env.docker`，参见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)。第十八阶段的隔离演练不读取该文件：
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 -m scripts.container_exercise
