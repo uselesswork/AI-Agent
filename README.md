@@ -34,6 +34,8 @@
 
 原四项计划中的 MySQL 集成测试与 CI、数据库迁移管理、AI 评估集扩充、容器部署演练已分别进入第十五至十八阶段。人工语义复核、真实模型质量评估、第二台机器复跑及公网部署仍需另行验证。
 
+第十七阶段的显式 live 评估现可保存供应商响应中的调用用量，并可选择上报 Hub 的调用用量接口。完整评测结果尚未接入 Hub；本轮只用假供应商响应和假 HTTP 服务验证，未运行真实模型。
+
 第一至第十九阶段的代码已实现；第十九阶段加入可选 LangSmith 模型调用摘要追踪，验证范围见独立说明。第十八阶段已在本机隔离 MySQL 容器验证登录、投递持久化与应用重启。第十七阶段的 20 个虚构案例已离线验证，人工语义复核与真实模型评估尚未完成。第十六阶段的迁移只在隔离 MySQL 库执行，日常库尚未登记 Alembic 版本。第十五、十六阶段 GitHub Actions 均已远端运行通过。第十三阶段初始账号升级已由用户在本机执行，真实账号网页登录仍待人工验证。第十四阶段的浏览器测试使用虚构账号和临时 SQLite。2026-11-13 的十四表、一个账号和零条投递属于当时新库的记录；历史七条投递属于更早的旧库验证结果。
 
 数据库专题：[十四张表的职责、字段字典、主外键与初始化说明](docs/数据库设计与字段说明.md)。
@@ -190,6 +192,7 @@
 
 - 20 个虚构案例覆盖简历、岗位和匹配任务；增加技能编造、岗位硬性条件遗漏、匹配条件误判及分数区间检查
 - 离线夹具 20/20 通过，字面证据检查 24/24、评分一致性 4/4；完整普通套件 91 项通过、7 项按设计跳过，Ruff 通过。这些数字不代表真实模型准确率，人工语义复核待完成。详见[第十七阶段说明](docs/第十七阶段-AI评估集扩充.md)
+- 显式 live 模式新增逐次调用元数据 JSONL 与可选 Hub 上报、失败重试；离线夹具不生成 token 记录。实现和边界见[第十七阶段说明](docs/第十七阶段-AI评估集扩充.md)
 
 第十八阶段的容器部署演练已在本机隔离环境完成：
 
@@ -594,7 +597,14 @@ cd D:\Agent\job-agent
 .\.venv\Scripts\python.exe -m pytest tests/test_browser_e2e.py --run-browser-e2e -q
 ```
 
-真实模型评估需主动使用 `--live --provider openai` 或 `--live --provider deepseek`，可能产生费用；本轮未运行。常规容器部署前需要另行配置被 Git 忽略的 `.env.docker`，参见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)。第十八阶段的隔离演练不读取该文件：
+真实模型评估需主动使用 `--live --provider openai` 或 `--live --provider deepseek`，可能产生费用；本轮未运行。live 模式逐次保存仅含评估运行 ID、案例 ID、服务商、请求 ID、实际模型名、耗时及供应商明确返回的成对 token 的 JSONL，默认位于 `test-results/live-usage/`（Git 忽略）。仅当再提供 `--hub-url` 和 Hub 已存在的 `--hub-run-id` 时才上报调用用量；也可用 `--usage-file` 指定新文件、`--price-version` 指定已登记价格版本。失败后使用同一文件重试：
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 -m scripts.evaluate_outputs --live --provider openai --hub-url http://127.0.0.1:8080 --hub-run-id 00000000-0000-0000-0000-000000000000
+.\.venv\Scripts\python.exe -X utf8 -m scripts.evaluate_outputs --retry-usage-file test-results/live-usage/示例.jsonl --hub-url http://127.0.0.1:8080 --hub-run-id 00000000-0000-0000-0000-000000000000
+```
+
+上例路径和运行 ID 仅是命令格式占位；实际重试必须换成 live 生成的文件和 Hub 已存在的运行 ID。默认离线模式不写用量文件、不访问 Hub；调用用量上报不包含评测结果。详见[第十七阶段说明](docs/第十七阶段-AI评估集扩充.md)。常规容器部署前需要另行配置被 Git 忽略的 `.env.docker`，参见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)。第十八阶段的隔离演练不读取该文件：
 
 ```powershell
 .\.venv\Scripts\python.exe -X utf8 -m scripts.container_exercise

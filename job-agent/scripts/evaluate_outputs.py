@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 from time import perf_counter
+from urllib.parse import urlsplit
+from uuid import uuid4
 
 from app.core.config import get_settings
 from app.models.candidate import CandidateProfile
@@ -14,6 +16,8 @@ from app.services.evaluation import evaluate_case
 from app.services.job_analyzer import build_job_analyzer
 from app.services.match_analyzer import build_match_analyzer
 from app.services.resume_analyzer import build_resume_analyzer
+from app.services.call_metadata import observe_model_calls
+from scripts.live_usage import record_call, upload_pending
 
 DEFAULT_CASES = Path(__file__).parents[1] / "evals" / "cases.json"
 
@@ -74,19 +78,56 @@ def main() -> int:
     parser.add_argument("--file", type=Path, default=DEFAULT_CASES, help="用例 JSON 路径")
     parser.add_argument("--live", action="store_true", help="显式调用真实模型，可能产生费用")
     parser.add_argument("--provider", choices=("openai", "deepseek"), help="真实模型服务商")
+    parser.add_argument("--usage-file", type=Path, help="live 用量 JSONL 路径；默认生成独立文件")
+    parser.add_argument("--retry-usage-file", type=Path, help="只重试本地 JSONL 的待上报调用")
+    parser.add_argument("--hub-url", help="显式启用 Hub 上报的服务地址")
+    parser.add_argument("--hub-run-id", help="Hub 中已存在的运行 ID")
+    parser.add_argument("--price-version", help="明确登记的价格版本；未指定则省略")
     args = parser.parse_args()
+    if bool(args.hub_url) != bool(args.hub_run_id):
+        parser.error("--hub-url 和 --hub-run-id 必须同时提供。")
+    if args.hub_url:
+        parsed = urlsplit(args.hub_url)
+        if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                or parsed.username or parsed.password or parsed.query or parsed.fragment
+                or parsed.path not in {"", "/"}):
+            parser.error("--hub-url 必须是 HTTP(S) 服务根地址。")
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", args.hub_run_id):
+            parser.error("--hub-run-id 必须是 Hub 运行 UUID。")
+    if args.retry_usage_file:
+        if args.live or args.provider or args.usage_file or args.price_version or not args.hub_url:
+            parser.error("重试模式仅接受 --retry-usage-file、--hub-url 和 --hub-run-id。")
+        try:
+            sent, failed = upload_pending(args.retry_usage_file, args.hub_url, args.hub_run_id)
+        except (OSError, ValueError, KeyError):
+            print("无法读取用量 JSONL；未发送调用。")
+            return 2
+        print(f"上报成功或已确认重复：{sent}；仍待重试：{failed}。")
+        return 0 if failed == 0 else 2
     if args.live != bool(args.provider):
         parser.error("真实评估必须同时提供 --live 和 --provider；默认仅检查夹具。")
+    if not args.live and (args.hub_url or args.usage_file or args.price_version):
+        parser.error("用量记录及 Hub 上报仅允许显式 --live 评估。")
     try:
         cases = load_cases(args.file)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"无法读取评估用例：{type(exc).__name__}。")
         return 2
+    evaluation_run_id = uuid4().hex if args.live else None
+    usage_file = args.usage_file or (Path("test-results/live-usage") / f"{evaluation_run_id}.jsonl") if args.live else None
+    if usage_file is not None and usage_file.exists():
+        parser.error("本次 live 用量文件已存在；请使用新路径，旧文件通过重试入口上报。")
     results = []
     for case in cases:
         started = perf_counter() if args.live else None
         try:
-            output = asyncio.run(generate_live(case, args.provider)) if args.live else case["output"]
+            if args.live:
+                with observe_model_calls(lambda call, case_id=case["id"]: record_call(
+                    usage_file, evaluation_run_id, case_id, args.provider, call, args.price_version
+                )):
+                    output = asyncio.run(generate_live(case, args.provider))
+            else:
+                output = case["output"]
             result = evaluate_case(case, output)
         except Exception:
             # 模型/网络异常可能含私密请求内容；只输出用例 ID 和失败类型。
@@ -107,7 +148,13 @@ def main() -> int:
     if args.live:
         settings = get_settings()
         model = settings.openai_model if args.provider == "openai" else settings.deepseek_model
-        print(f"模型：{args.provider}/{model}；费用估算：不可用（当前客户端未返回用量）。")
+        print(f"模型配置：{args.provider}/{model}；本地用量文件：{usage_file}；费用由 Hub 独立核算。")
+        if args.hub_url:
+            sent, failed = upload_pending(usage_file, args.hub_url, args.hub_run_id) if usage_file.exists() else (0, 0)
+            print(f"Hub 上报成功或已确认重复：{sent}；待重试：{failed}。")
+            if failed:
+                print("可用 --retry-usage-file、--hub-url 和 --hub-run-id 重试，requestId 保持不变。")
+                return 2
     return 0 if passed == len(results) else 1
 
 

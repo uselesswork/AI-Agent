@@ -111,6 +111,6 @@ def test_live_report_labels_model_and_unavailable_cost_without_network(
     assert evaluate_outputs.main() == 0
     output = capsys.readouterr().out
     assert "模式：真实模型" in output
-    assert "模型：openai/synthetic-model" in output
-    assert "费用估算：不可用" in output
+    assert "模型配置：openai/synthetic-model" in output
+    assert "费用由 Hub 独立核算" in output
     assert "耗时：" in output
