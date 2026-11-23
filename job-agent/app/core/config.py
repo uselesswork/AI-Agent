@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     llm_provider: Literal["openai", "deepseek"] = "openai"
     openai_api_key: SecretStr | None = None
-    openai_model: str = "gpt-5.6-luna"
+    openai_model: str = "gpt-6-luna"
     openai_base_url: str = "https://api.openai.com/v1"
     deepseek_api_key: SecretStr | None = None
     deepseek_model: str = "deepseek-v4-flash"
