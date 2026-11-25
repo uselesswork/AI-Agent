@@ -239,6 +239,28 @@ cd D:\Agent\job-agent
 - 健康检查：`http://127.0.0.1:8000/health`
 - 数据库就绪检查：`http://127.0.0.1:8000/ready`（需已有账号及第十三阶段库结构）
 
+### Docker Compose 启动（可选）
+
+项目已有 [`Dockerfile`](job-agent/Dockerfile) 和 [`compose.yaml`](job-agent/compose.yaml)。此方式只把**应用**放进容器，连接已有的 MySQL；Compose 不创建数据库、账号，也不自动执行 Alembic 迁移。先启动 Docker Desktop 与 MySQL，并确认数据库已具备项目所需表结构。若本机 Python 版应用正在占用 `8000` 端口，先停止它，再启动容器版。
+
+首次使用时，在 `D:\Agent\job-agent` 创建仅供本机使用的配置文件，并填写自己的 Key 与数据库连接信息：
+
+```powershell
+cd D:\Agent\job-agent
+if (-not (Test-Path .env.docker)) { Copy-Item .env.docker.example .env.docker }
+```
+
+`.env.docker` 已被 Git 忽略；不要把真实 Key、数据库密码或网页登录密码写进 README、提交或截图。容器连接宿主机 MySQL 时，`DATABASE_URL` 的主机通常应为 `host.docker.internal`，而不是 `127.0.0.1`；建议使用有该库权限的专用账号，不要长期使用 `root`。本机配置需与实际数据库和模型权限一致。然后执行：
+
+```powershell
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=100 app
+```
+
+容器就绪后打开 `http://127.0.0.1:8000/upload`；可用 `http://127.0.0.1:8000/ready` 检查应用与数据库基本就绪。停止服务用 `docker compose down`，它不删除数据库；不要对有数据的 Compose 项目随意加 `-v`。本机曾验证镜像构建及一次性应用容器连接现有 MySQL、读取 `gpt-6-luna` 配置，但**未**在日常库上验证完整的容器网页登录和模型业务流程。若 Docker Hub 拉取 `python:3.12-slim` 失败，参见[第十八阶段的镜像源处理与隔离容器演练](docs/第十八阶段-容器部署演练.md)；部署边界见[第十四阶段说明](docs/第十四阶段-评估端到端测试与部署监控.md)。
+
 看板已保存记录可调用 `GET /api/applications/{id}/draft` 预览草稿；下载接口为 `GET /api/applications/{id}/draft/{resume|letter}.{docx|pdf}`。若 PDF 导出返回 503，可设置 `PDF_CJK_FONT_PATH` 指向中文 TTF/TTC 字体后重启应用；Windows 默认尝试系统自带中文字体。
 
 人工版本使用 `POST/GET /api/applications/{id}/draft-versions` 保存和列出；`GET /api/applications/{id}/draft-versions/{version}` 读取；`PATCH .../{version}/review` 提交 `{"confirmed": true}` 后，才能通过 `GET .../{version}/{resume|letter}.{docx|pdf}` 下载该版本。未核对下载返回 409。
