@@ -2,6 +2,7 @@
 
 import json
 import re
+from time import sleep
 from dataclasses import dataclass
 from html import unescape
 from html.parser import HTMLParser
@@ -13,6 +14,8 @@ from app.models.discovery import DiscoverySearch, SourceName
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 MAX_LEVER_PAGES = 3
 LEVER_PAGE_SIZE = 100
+RETRY_DELAYS = (0.3, 0.7)
+RETRYABLE_HTTP_STATUSES = {429, 500, 502, 503, 504}
 
 
 class DiscoveryServiceError(RuntimeError):
@@ -73,15 +76,20 @@ class _NoRedirect(HTTPRedirectHandler):
 def fetch_json(url: str):
     """请求地址只由本模块固定域名与已校验的标识拼成，不接受任意 URL。"""
     request = Request(url, headers={"Accept": "application/json", "User-Agent": "job-agent/0.1"})
-    try:
-        with build_opener(_NoRedirect).open(request, timeout=10) as response:
-            raw = response.read(MAX_RESPONSE_BYTES + 1)
-    except HTTPError as exc:
-        if exc.code == 404:
-            raise PostingNotFoundError("该职位或招聘板不存在。") from exc
-        raise DiscoveryServiceError(f"职位来源返回 HTTP {exc.code}。") from exc
-    except (URLError, TimeoutError) as exc:
-        raise DiscoveryServiceError("无法连接职位来源，请稍后重试。") from exc
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        try:
+            with build_opener(_NoRedirect).open(request, timeout=10) as response:
+                raw = response.read(MAX_RESPONSE_BYTES + 1)
+            break
+        except HTTPError as exc:
+            if exc.code == 404:
+                raise PostingNotFoundError("该职位或招聘板不存在。") from exc
+            if exc.code not in RETRYABLE_HTTP_STATUSES or attempt == len(RETRY_DELAYS):
+                raise DiscoveryServiceError(f"职位来源返回 HTTP {exc.code}。") from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            if attempt == len(RETRY_DELAYS):
+                raise DiscoveryServiceError("无法连接职位来源，已重试 2 次，请稍后再试。") from exc
+        sleep(RETRY_DELAYS[attempt])
     if len(raw) > MAX_RESPONSE_BYTES:
         raise DiscoveryServiceError("职位来源返回内容过大，请缩小查询范围。")
     try:

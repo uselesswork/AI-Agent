@@ -1,3 +1,7 @@
+from io import BytesIO
+from urllib.error import HTTPError, URLError
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api import discovery
@@ -5,11 +9,74 @@ from app.main import app
 from app.models.job import JobProfile
 from app.services.application_repository import ApplicationRepository
 from app.services.discovery_repository import DiscoveryRepository
-from app.services.job_discovery import PostingNotFoundError
+from app.services.job_discovery import (
+    DiscoveryServiceError, PostingNotFoundError, fetch_json,
+)
 from app.services.library_repository import LibraryRepository
 from scripts.upgrade_job_imports import upgrade
 
 client = TestClient(app)
+
+
+def test_public_feed_retries_transient_failures(monkeypatch):
+    from app.services import job_discovery
+
+    attempts = []
+    pauses = []
+    outcomes = [URLError("temporary network failure"),
+                HTTPError("https://example.test/jobs", 503, "unavailable", None, None),
+                BytesIO(b'{"jobs": []}')]
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            attempts.append((request.full_url, timeout))
+            outcome = outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    monkeypatch.setattr(job_discovery, "build_opener", lambda handler: FakeOpener())
+    monkeypatch.setattr(job_discovery, "sleep", pauses.append)
+    assert fetch_json("https://example.test/jobs") == {"jobs": []}
+    assert len(attempts) == 3
+    assert pauses == list(job_discovery.RETRY_DELAYS)
+
+
+@pytest.mark.parametrize("code", [400, 404])
+def test_public_feed_does_not_retry_permanent_http_errors(monkeypatch, code):
+    from app.services import job_discovery
+
+    attempts = []
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            attempts.append(request.full_url)
+            raise HTTPError(request.full_url, code, "error", None, None)
+
+    monkeypatch.setattr(job_discovery, "build_opener", lambda handler: FakeOpener())
+    monkeypatch.setattr(job_discovery, "sleep", lambda delay: pytest.fail("不应重试"))
+    with pytest.raises(PostingNotFoundError if code == 404 else DiscoveryServiceError):
+        fetch_json("https://example.test/jobs")
+    assert len(attempts) == 1
+
+
+def test_public_feed_stops_after_two_retries(monkeypatch):
+    from app.services import job_discovery
+
+    attempts = []
+    pauses = []
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            attempts.append(request.full_url)
+            raise URLError("still unavailable")
+
+    monkeypatch.setattr(job_discovery, "build_opener", lambda handler: FakeOpener())
+    monkeypatch.setattr(job_discovery, "sleep", pauses.append)
+    with pytest.raises(DiscoveryServiceError, match="已重试 2 次"):
+        fetch_json("https://example.test/jobs")
+    assert len(attempts) == 3
+    assert pauses == list(job_discovery.RETRY_DELAYS)
 
 
 def use_temporary_discovery(monkeypatch, tmp_path):
